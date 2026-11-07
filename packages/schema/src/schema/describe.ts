@@ -1,12 +1,29 @@
 import type {
+  BlocksFieldDescription,
+  BooleanFieldDescription,
   CollectionDescription,
+  DateFieldDescription,
   FieldDescription,
+  JsonFieldDescription,
+  ListFieldDescription,
+  NumberFieldDescription,
   ObjectFieldDescription,
+  PointFieldDescription,
+  TextFieldDescription,
 } from "./contract.ts";
 import type { CompiledField, FieldEntries } from "./fields.ts";
 
 function describeEntries(fields: FieldEntries): Record<string, FieldDescription> {
   return Object.fromEntries(fields.map(([name, field]) => [name, describeField(field)]));
+}
+
+/** The compiled default, typed as the description's default. compileField has already validated it against this field's rules, which its `unknown` type cannot carry. */
+function defaultOf<Described extends { default?: unknown }>(
+  field: CompiledField,
+): Pick<Described, "default"> {
+  return field.hasDefault
+    ? ({ default: structuredClone(field.default) } as Pick<Described, "default">)
+    : {};
 }
 
 function describeRequired(field: CompiledField): FieldDescription {
@@ -19,7 +36,6 @@ export function describeField(field: CompiledField): FieldDescription {
     required: !field.optional && !field.hasDefault,
     nullable: field.nullable,
   };
-  const defaulted = field.hasDefault ? { default: structuredClone(field.default) } : {};
   const { rules } = field;
   switch (rules.kind) {
     case "text":
@@ -31,9 +47,9 @@ export function describeField(field: CompiledField): FieldDescription {
         ...(rules.max === undefined ? {} : { max: rules.max }),
         ...(rules.format === undefined ? {} : { format: rules.format }),
         ...(rules.choices === undefined ? {} : { choices: [...rules.choices] }),
-        ...defaulted,
+        ...defaultOf<TextFieldDescription>(field),
         ...(rules.editor === undefined ? {} : { editor: { ...rules.editor } }),
-      } as FieldDescription;
+      };
     case "number":
       return {
         type: "number",
@@ -41,15 +57,15 @@ export function describeField(field: CompiledField): FieldDescription {
         integer: rules.integer,
         ...(rules.min === undefined ? {} : { min: rules.min }),
         ...(rules.max === undefined ? {} : { max: rules.max }),
-        ...defaulted,
-      } as FieldDescription;
+        ...defaultOf<NumberFieldDescription>(field),
+      };
     case "boolean":
       return {
         type: "boolean",
         ...presence,
-        ...defaulted,
+        ...defaultOf<BooleanFieldDescription>(field),
         ...(rules.editor === undefined ? {} : { editor: { type: rules.editor } }),
-      } as FieldDescription;
+      };
     case "date":
     case "datetime":
       return {
@@ -57,8 +73,8 @@ export function describeField(field: CompiledField): FieldDescription {
         ...presence,
         ...(rules.min === undefined ? {} : { min: rules.min }),
         ...(rules.max === undefined ? {} : { max: rules.max }),
-        ...defaulted,
-      } as FieldDescription;
+        ...defaultOf<DateFieldDescription>(field),
+      };
     case "list":
       return {
         type: "list",
@@ -66,15 +82,15 @@ export function describeField(field: CompiledField): FieldDescription {
         item: describeRequired(rules.item),
         ...(rules.min === undefined ? {} : { min: rules.min }),
         ...(rules.max === undefined ? {} : { max: rules.max }),
-        ...defaulted,
-      } as FieldDescription;
+        ...defaultOf<ListFieldDescription>(field),
+      };
     case "object":
       return {
         type: "object",
         ...presence,
         fields: describeEntries(rules.fields),
-        ...defaulted,
-      } as FieldDescription;
+        ...defaultOf<ObjectFieldDescription>(field),
+      };
     case "blocks":
       return {
         type: "blocks",
@@ -87,12 +103,12 @@ export function describeField(field: CompiledField): FieldDescription {
         ),
         ...(rules.min === undefined ? {} : { min: rules.min }),
         ...(rules.max === undefined ? {} : { max: rules.max }),
-        ...defaulted,
-      } as FieldDescription;
+        ...defaultOf<BlocksFieldDescription>(field),
+      };
     case "json":
-      return { type: "json", ...presence, ...defaulted } as FieldDescription;
+      return { type: "json", ...presence, ...defaultOf<JsonFieldDescription>(field) };
     case "point":
-      return { type: "point", ...presence, ...defaulted } as FieldDescription;
+      return { type: "point", ...presence, ...defaultOf<PointFieldDescription>(field) };
     case "reference":
       return {
         type: "reference",
