@@ -24,6 +24,17 @@ export function parseEntry(body: unknown): EntryInput | null {
   return input instanceof type.errors ? null : input;
 }
 
+/** The account fields for a purpose, without the transport's `returnTo`. */
+function accountFields(account: Record<string, unknown>, purpose: "setup" | "sign-in") {
+  if (purpose === "setup") {
+    const setup = authSetupInput(account);
+    return setup instanceof type.errors ? setup : { purpose, ...setup };
+  }
+  const signIn = authSignInInput(account);
+  return signIn instanceof type.errors ? signIn : { purpose, ...signIn };
+}
+
+/** Account field errors come before a `returnTo` error. */
 export function parseAccount(
   body: unknown,
   purpose: "setup" | "sign-in",
@@ -33,27 +44,16 @@ export function parseAccount(
   if (!body || typeof body !== "object" || Array.isArray(body))
     return { kind: "invalid-input", fields: { email: "Enter a valid email" } };
   const { returnTo, ...account } = body as Record<string, unknown>;
-  const parsed = purpose === "setup" ? authSetupInput(account) : authSignInInput(account);
-  if (parsed instanceof type.errors) {
-    const fields: Record<string, string> = {};
-    for (const error of parsed) fields[String(error.path[0] ?? "email")] = error.message;
-    return { kind: "invalid-input", fields };
+  const fields = accountFields(account, purpose);
+  if (fields instanceof type.errors) {
+    const errors: Record<string, string> = {};
+    for (const error of fields) errors[String(error.path[0] ?? "email")] = error.message;
+    return { kind: "invalid-input", fields: errors };
   }
-  let target: ProtectedDestination | null = null;
-  if (returnTo !== undefined) {
-    const parsedTarget = protectedDestination(returnTo);
-    if (parsedTarget instanceof type.errors)
-      return { kind: "invalid-input", fields: { returnTo: "Choose an allowed destination" } };
-    target = parsedTarget;
-  }
-  if (purpose === "setup" && "name" in parsed && typeof parsed.name === "string")
-    return {
-      kind: "valid",
-      value: { purpose, name: parsed.name, email: parsed.email, returnTo: target },
-    };
-  if (purpose === "sign-in")
-    return { kind: "valid", value: { purpose, email: parsed.email, returnTo: target } };
-  return { kind: "invalid-input", fields: { name: "Enter your name" } };
+  const target = returnTo === undefined ? null : protectedDestination(returnTo);
+  if (target instanceof type.errors)
+    return { kind: "invalid-input", fields: { returnTo: "Choose an allowed destination" } };
+  return { kind: "valid", value: { ...fields, returnTo: target } };
 }
 
 /** A link body with a known purpose and a token of the shape `newToken` makes, or null. */

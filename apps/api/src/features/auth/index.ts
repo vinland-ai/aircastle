@@ -1,38 +1,14 @@
-import type { AuthAdmissionStore, AuthLimits, AuthStore, ReportError } from "@aircastle/core";
-import type { AuthEvent } from "./diagnostics.ts";
 import { developmentAuth } from "./runtime.ts";
+import type { DevelopmentAuthOptions, LocalAuthRuntime } from "./runtime.ts";
 import { failed, succeeded } from "./responses.ts";
-import type { DevelopmentInbox } from "../development-inbox/index.ts";
 
 export { authErrorReporter, createAuthEventLogger } from "./diagnostics.ts";
 export type { AuthEvent } from "./diagnostics.ts";
+export type { LocalAuthRuntime } from "./runtime.ts";
 
-export type LocalAuthConfig =
-  | { mode: "disabled" }
-  | {
-      mode: "development";
-      browserOrigin: string;
-      initialEmail?: string;
-      limits: AuthLimits;
-    };
+export type LocalAuthConfig = { mode: "disabled" } | DevelopmentAuthOptions["config"];
 
-export interface LocalAuthRuntime {
-  handle: (request: Request, peer: { address: string | undefined }) => Promise<Response>;
-  close: () => Promise<void>;
-}
-
-export type LocalAuthOptions =
-  | { config: { mode: "disabled" } }
-  | {
-      config: Extract<LocalAuthConfig, { mode: "development" }>;
-      storage: AuthStore;
-      admission: AuthAdmissionStore;
-      clock?: () => number;
-      inbox?: DevelopmentInbox;
-      emit: (event: AuthEvent) => void;
-      /** Receives the summary of an unexpected error raised outside a request, such as in background reconciliation. */
-      report: ReportError;
-    };
+export type LocalAuthOptions = { config: { mode: "disabled" } } | DevelopmentAuthOptions;
 
 export async function createLocalAuth(options: LocalAuthOptions): Promise<LocalAuthRuntime> {
   if (!("storage" in options))

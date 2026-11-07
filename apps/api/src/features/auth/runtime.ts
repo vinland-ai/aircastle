@@ -1,23 +1,37 @@
 import { AuthStorageError } from "@aircastle/core";
-import { createDevelopmentInbox } from "../development-inbox/index.ts";
+import type { AuthAdmissionStore, AuthLimits, AuthStore, ReportError } from "@aircastle/core";
+import type { DevelopmentInbox } from "../development-inbox/index.ts";
 import { createCredentials } from "./credentials.ts";
 import { boundedEvents, storageUnavailable } from "./diagnostics.ts";
+import type { AuthEvent } from "./diagnostics.ts";
 import { createSessions, sessionCookie, sessionProjection } from "./sessions.ts";
 import { fromBrowserOrigin, matchRoute } from "./dispatch.ts";
 import type { AuthRoute } from "./dispatch.ts";
 import { jsonBody, parseAccount, parseEntry, parseLink } from "./request.ts";
 import { failed, succeeded } from "./responses.ts";
-import type { LocalAuthOptions, LocalAuthRuntime } from "./index.ts";
+
+export interface LocalAuthRuntime {
+  handle: (request: Request, peer: { address: string | undefined }) => Promise<Response>;
+  close: () => Promise<void>;
+}
+
+export interface DevelopmentAuthOptions {
+  config: { mode: "development"; browserOrigin: string; initialEmail?: string; limits: AuthLimits };
+  storage: AuthStore;
+  admission: AuthAdmissionStore;
+  clock?: () => number;
+  inbox: DevelopmentInbox;
+  emit: (event: AuthEvent) => void;
+  /** Receives the summary of an unexpected error raised outside a request, such as in background reconciliation. */
+  report: ReportError;
+}
 
 type Call = { request: Request; peer: { address: string | undefined }; id: string | undefined };
 
-export async function developmentAuth(
-  options: Extract<LocalAuthOptions, { storage: unknown }>,
-): Promise<LocalAuthRuntime> {
-  const { storage, admission, config } = options;
+export async function developmentAuth(options: DevelopmentAuthOptions): Promise<LocalAuthRuntime> {
+  const { storage, admission, config, inbox } = options;
   const clock = options.clock ?? Date.now;
   const emit = boundedEvents((event) => options.emit(event), clock);
-  const inbox = options.inbox ?? createDevelopmentInbox();
   const credentials = createCredentials({
     storage,
     inbox,
