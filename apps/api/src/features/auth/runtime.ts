@@ -3,7 +3,7 @@ import { createDevelopmentInbox } from "../development-inbox/index.ts";
 import { createCredentials } from "./credentials.ts";
 import { boundedEvents, storageUnavailable } from "./diagnostics.ts";
 import { createSessions, sessionCookie, sessionProjection } from "./sessions.ts";
-import { authResponse, jsonBody, ok, parseAccount, parseLink } from "./request.ts";
+import { authResponse, jsonBody, ok, parseAccount, parseEntry, parseLink } from "./request.ts";
 import type { LocalAuthOptions, LocalAuthRuntime } from "./index.ts";
 
 const openMessageRoute = "/api/development-inbox/messages/:id/open";
@@ -81,7 +81,7 @@ export async function developmentAuth(
     }
     const body = await jsonBody(request);
     if (path === "/api/auth/entry") {
-      const result = await sessions.entry(token, body);
+      const result = await sessions.entry(token, parseEntry(body));
       if (result.kind !== "ok" || !token)
         return authResponse(
           result.kind === "ok" ? { kind: "unauthenticated" } : result,

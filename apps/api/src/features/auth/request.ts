@@ -8,13 +8,21 @@ export type AccountInput =
   | { purpose: "setup"; name: string; email: string; returnTo: ProtectedDestination | null }
   | { purpose: "sign-in"; email: string; returnTo: ProtectedDestination | null };
 
-export const authEntryInput = type
+const authEntryInput = type
   .or(
     { kind: "'resolve'", "requested?": protectedDestination },
     { kind: "'skip-onboarding'" },
     { kind: "'visit'", destination: protectedDestination },
   )
   .onDeepUndeclaredKey("reject");
+
+export type EntryInput = typeof authEntryInput.infer;
+
+/** The entry request, or null when the body is not one. */
+export function parseEntry(body: unknown): EntryInput | null {
+  const input = authEntryInput(body);
+  return input instanceof type.errors ? null : input;
+}
 
 export function parseAccount(
   body: unknown,

@@ -1,17 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { type } from "arktype";
 import { generateCookie, generateSignedCookie } from "hono/cookie";
 import { parseSigned } from "hono/utils/cookie";
 import type {
-  AuthDestination,
-  AuthEntryRecord,
   AuthSessionRecord,
   AuthStore,
   AuthTransaction,
   AuthUserRecord,
-  ProtectedDestination,
 } from "@aircastle/core";
-import { authEntryInput } from "./request.ts";
+import { resolveEntry } from "./entry.ts";
+import type { EntryInput } from "./request.ts";
 import { digest, newToken } from "./token.ts";
 
 const lifetime = 1_209_600_000;
@@ -86,58 +83,6 @@ export function createSessions(storage: AuthStore, clock: () => number) {
     return session ? { user: pair.user, session } : null;
   }
 
-  async function destination(
-    tx: AuthTransaction,
-    userId: string,
-    input: typeof authEntryInput.infer,
-  ): Promise<
-    { kind: "ok"; destination: AuthDestination; entry: AuthEntryRecord } | { kind: "forbidden" }
-  > {
-    const entry = await tx.entry(userId);
-    const target =
-      input.kind === "visit"
-        ? input.destination
-        : input.kind === "resolve"
-          ? input.requested
-          : undefined;
-    if (target && (await tx.authorize(userId, target))) {
-      return {
-        kind: "ok",
-        destination: target,
-        entry: {
-          onboardingOffered: true,
-          lastWorkspaceId:
-            target.kind === "workspaces" ? entry.lastWorkspaceId : target.workspaceId,
-        },
-      };
-    }
-    if (input.kind === "visit") return { kind: "forbidden" };
-    if (input.kind === "skip-onboarding") {
-      return {
-        kind: "ok",
-        destination: { kind: "workspaces" },
-        entry: { ...entry, onboardingOffered: true },
-      };
-    }
-    if (entry.lastWorkspaceId) {
-      const remembered: ProtectedDestination = {
-        kind: "workspace-projects",
-        workspaceId: entry.lastWorkspaceId,
-      };
-      const allowed = await tx.authorize(userId, remembered);
-      return {
-        kind: "ok",
-        destination: allowed ? remembered : { kind: "workspaces" },
-        entry: { onboardingOffered: true, lastWorkspaceId: allowed ? entry.lastWorkspaceId : null },
-      };
-    }
-    return {
-      kind: "ok",
-      destination: { kind: entry.onboardingOffered ? "workspaces" : "create-workspace" },
-      entry: { ...entry, onboardingOffered: true },
-    };
-  }
-
   return {
     /** The instance state for `/auth/state`, read without locks or renewal. */
     state: (token: string | undefined) =>
@@ -157,13 +102,16 @@ export function createSessions(storage: AuthStore, clock: () => number) {
         const pair = await current(tx, token, "lock");
         return pair ? renew(tx, pair) : null;
       }),
-    entry: (token: string | undefined, body: unknown) =>
+    /** Checks the session before the input, so a request without one is unauthenticated. */
+    entry: (token: string | undefined, input: EntryInput | null) =>
       storage.transaction(async (tx) => {
         const pair = await current(tx, token, "lock");
         if (!pair) return { kind: "unauthenticated" as const };
-        const input = authEntryInput(body);
-        if (input instanceof type.errors) return { kind: "invalid-input" as const };
-        const result = await destination(tx, pair.user.id, input);
+        if (!input) return { kind: "invalid-input" as const };
+        const userId = pair.user.id;
+        const result = await resolveEntry(input, await tx.entry(userId), (destination) =>
+          tx.authorize(userId, destination),
+        );
         if (result.kind === "forbidden") return result;
         const renewed = await renew(tx, pair);
         if (!renewed) return { kind: "unauthenticated" as const };
