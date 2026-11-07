@@ -29,6 +29,16 @@ export interface DevelopmentAuthOptions {
 
 type Call = { request: Request; peer: { address: string | undefined }; id: string | undefined };
 
+interface HandlerOptions {
+  admission: AuthAdmissionStore;
+  credentials: ReturnType<typeof createCredentials>;
+  sessions: ReturnType<typeof createSessions>;
+  cookie: ReturnType<typeof sessionCookie>;
+  inbox: DevelopmentInbox;
+  emit: (event: AuthEvent) => void;
+  clock: () => number;
+}
+
 export async function developmentAuth(options: DevelopmentAuthOptions): Promise<LocalAuthRuntime> {
   const { storage, admission, config, inbox } = options;
   const clock = options.clock ?? Date.now;
@@ -46,32 +56,69 @@ export async function developmentAuth(options: DevelopmentAuthOptions): Promise<
   const cookie = sessionCookie(config.browserOrigin, await storage.signingSecret());
   const origin = new URL(config.browserOrigin);
 
-  const requestLink =
-    (purpose: "setup" | "sign-in") =>
-    async ({ request, peer }: Call): Promise<Response> => {
-      const body = await jsonBody(request);
-      if (!peer.address) return failed({ kind: "forbidden" });
-      const parsed = parseAccount(body, purpose);
-      const admitted = await admission.admit({
-        source: peer.address,
-        ...(parsed.kind === "valid" ? { email: parsed.value.email } : {}),
-      });
-      if (admitted.kind === "throttled") {
-        emit({ kind: "request-blocked", scopes: admitted.scopes });
-        return failed(
-          { kind: "throttled", retryAt: admitted.retryAt },
-          {
-            "Retry-After": String(Math.max(0, Math.ceil((admitted.retryAt - clock()) / 1000))),
-          },
-        );
-      }
-      if (parsed.kind === "invalid-input") return failed(parsed);
-      const result = await credentials.issue(parsed.value);
-      if (result.kind !== "issued") return failed(result);
-      return succeeded({ confirmation: purpose === "setup" ? "setup-inbox" : "sign-in-inbox" });
-    };
+  const handlers = routeHandlers({ admission, credentials, sessions, cookie, inbox, emit, clock });
 
-  const handlers: Record<AuthRoute, (call: Call) => Promise<Response>> = {
+  return {
+    handle: async (request, peer) => {
+      const match = matchRoute(request.method, new URL(request.url).pathname);
+      if (!match) return failed({ kind: "not-found" });
+      if (!fromBrowserOrigin(request, origin)) return failed({ kind: "forbidden" });
+      try {
+        return await handlers[match.route]({ request, peer, id: match.id });
+      } catch (error) {
+        if (!(error instanceof AuthStorageError)) throw error;
+        emit(storageUnavailable(error));
+        return failed({ kind: "temporary-failure" });
+      }
+    },
+    close: () => credentials.close(),
+  };
+}
+
+/** The decoded message id, or undefined when it is missing or not valid percent-encoding. */
+function decodedId(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  try {
+    return decodeURIComponent(raw);
+  } catch (error) {
+    if (!(error instanceof URIError)) throw error;
+    return undefined;
+  }
+}
+
+function requestLink(
+  { admission, credentials, emit, clock }: HandlerOptions,
+  purpose: "setup" | "sign-in",
+) {
+  return async ({ request, peer }: Call): Promise<Response> => {
+    const body = await jsonBody(request);
+    if (!peer.address) return failed({ kind: "forbidden" });
+    const parsed = parseAccount(body, purpose);
+    const admitted = await admission.admit({
+      source: peer.address,
+      ...(parsed.kind === "valid" ? { email: parsed.value.email } : {}),
+    });
+    if (admitted.kind === "throttled") {
+      emit({ kind: "request-blocked", scopes: admitted.scopes });
+      return failed(
+        { kind: "throttled", retryAt: admitted.retryAt },
+        {
+          "Retry-After": String(Math.max(0, Math.ceil((admitted.retryAt - clock()) / 1000))),
+        },
+      );
+    }
+    if (parsed.kind === "invalid-input") return failed(parsed);
+    const result = await credentials.issue(parsed.value);
+    if (result.kind !== "issued") return failed(result);
+    return succeeded({ confirmation: purpose === "setup" ? "setup-inbox" : "sign-in-inbox" });
+  };
+}
+
+function routeHandlers(
+  options: HandlerOptions,
+): Record<AuthRoute, (call: Call) => Promise<Response>> {
+  const { sessions, cookie, inbox, credentials } = options;
+  return {
     "GET /api/auth/state": async ({ request }) =>
       succeeded(await sessions.state(await cookie.read(request))),
     "GET /api/auth/session": async ({ request }) => {
@@ -84,8 +131,8 @@ export async function developmentAuth(options: DevelopmentAuthOptions): Promise<
       const entry = messageId === undefined ? undefined : inbox.open(messageId);
       return entry ? succeeded(entry) : failed({ kind: "not-found" });
     },
-    "POST /api/auth/setup": requestLink("setup"),
-    "POST /api/auth/sign-in": requestLink("sign-in"),
+    "POST /api/auth/setup": requestLink(options, "setup"),
+    "POST /api/auth/sign-in": requestLink(options, "sign-in"),
     "POST /api/auth/confirm": async ({ request }) => {
       const result = await credentials.confirm(parseLink(await jsonBody(request)));
       if (result.kind === "failure") return failed(result.failure);
@@ -120,31 +167,4 @@ export async function developmentAuth(options: DevelopmentAuthOptions): Promise<
       );
     },
   };
-
-  return {
-    handle: async (request, peer) => {
-      const match = matchRoute(request.method, new URL(request.url).pathname);
-      if (!match) return failed({ kind: "not-found" });
-      if (!fromBrowserOrigin(request, origin)) return failed({ kind: "forbidden" });
-      try {
-        return await handlers[match.route]({ request, peer, id: match.id });
-      } catch (error) {
-        if (!(error instanceof AuthStorageError)) throw error;
-        emit(storageUnavailable(error));
-        return failed({ kind: "temporary-failure" });
-      }
-    },
-    close: () => credentials.close(),
-  };
-}
-
-/** The decoded message id, or undefined when it is missing or not valid percent-encoding. */
-function decodedId(raw: string | undefined): string | undefined {
-  if (raw === undefined) return undefined;
-  try {
-    return decodeURIComponent(raw);
-  } catch (error) {
-    if (!(error instanceof URIError)) throw error;
-    return undefined;
-  }
 }
