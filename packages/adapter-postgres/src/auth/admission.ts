@@ -6,9 +6,9 @@ import type {
   AuthLimits,
   AuthLimitScope,
 } from "@aircastle/core";
-import type { PostgresOptions } from "../index.ts";
+import { connectionTarget } from "../config.ts";
+import type { PostgresOptions } from "../config.ts";
 import { identifier } from "../identifier.ts";
-import { connectionTarget } from "../layout.ts";
 import { storageFailure } from "./failure.ts";
 import { initializeAuthLayout } from "./layout.ts";
 import { lockId } from "./lock.ts";

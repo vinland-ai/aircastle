@@ -1,9 +1,9 @@
 import postgres from "postgres";
 import { AuthStorageError } from "@aircastle/core";
 import type { AuthStore } from "@aircastle/core";
-import type { PostgresOptions } from "../index.ts";
+import { connectionTarget } from "../config.ts";
+import type { PostgresOptions } from "../config.ts";
 import { identifier } from "../identifier.ts";
-import { connectionTarget } from "../layout.ts";
 import { initializeAuthLayout } from "./layout.ts";
 import { storageFailure } from "./failure.ts";
 import { authTransaction } from "./transaction.ts";

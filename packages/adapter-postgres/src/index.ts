@@ -3,17 +3,15 @@ import postgres from "postgres";
 import { StorageUnavailable } from "@aircastle/core";
 import type { ContentStore, ProjectTransaction } from "@aircastle/core";
 import { identifier } from "./identifier.ts";
-import { connectionTarget, initializeLayout } from "./layout.ts";
+import { connectionTarget } from "./config.ts";
+import type { PostgresOptions } from "./config.ts";
+import { initializeLayout } from "./layout.ts";
 import { projectTransaction } from "./project.ts";
 
 export { readPostgresOptions } from "./config.ts";
+export type { PostgresOptions } from "./config.ts";
 export { postgresAuthAdmission } from "./auth/admission.ts";
 export { postgresAuthStore } from "./auth/index.ts";
-
-export interface PostgresOptions {
-  url: string;
-  namespace?: string;
-}
 
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 

@@ -1,4 +1,27 @@
-import type { PostgresOptions } from "./index.ts";
+export interface PostgresOptions {
+  url: string;
+  namespace?: string;
+}
+
+function validatedNamespace(value: string) {
+  if (typeof value !== "string" || !value || value.includes("\0") || Buffer.byteLength(value) > 63)
+    throw new Error("Invalid Postgres namespace");
+  for (const point of value) {
+    const code = point.charCodeAt(0);
+    if (point.length === 1 && code >= 0xd800 && code <= 0xdfff)
+      throw new Error("Invalid Postgres namespace Unicode");
+  }
+  return value;
+}
+
+export function connectionTarget(options: PostgresOptions) {
+  const namespace = validatedNamespace(
+    options.namespace === undefined ? "aircastle" : options.namespace,
+  );
+  if (typeof options.url !== "string" || options.url.length === 0)
+    throw new Error("Postgres URL is required");
+  return { url: options.url, namespace };
+}
 
 function parsedUrl(value: string) {
   try {
