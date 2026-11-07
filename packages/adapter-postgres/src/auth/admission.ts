@@ -1,6 +1,13 @@
 import postgres from "postgres";
-import { AuthStorageError } from "@aircastle/core";
+import {
+  AuthStorageError,
+  admissionRetention,
+  authLimitScopes,
+  authLimitWindows,
+  decideAdmission,
+} from "@aircastle/core";
 import type {
+  AdmissionHistory,
   AuthAdmission,
   AuthAdmissionStore,
   AuthLimits,
@@ -13,40 +20,17 @@ import { storageFailure } from "./failure.ts";
 import { initializeAuthLayout } from "./layout.ts";
 import { lockId } from "./lock.ts";
 
-const windows = [
-  ["fiveMinutes", 300_000],
-  ["oneHour", 3_600_000],
-] as const;
-const retention = Math.max(...windows.map(([, duration]) => duration));
-const scopes = ["email", "ip", "global"] as const;
+type AdmissionRow = { scope: AuthLimitScope; admitted_at: string };
 
-type AdmissionEvent = { scope: AuthLimitScope; admitted_at: string };
-type Throttled = Extract<AuthAdmission, { kind: "throttled" }>;
-
-function exhausted(
-  events: AdmissionEvent[],
-  limits: AuthLimits,
-  now: number,
-  checked: AuthLimitScope[],
-): Throttled | undefined {
-  const blocked: AuthLimitScope[] = [];
-  let retryAt = now;
-  for (const scope of checked) {
-    const times = events
-      .filter((event) => event.scope === scope)
-      .map((event) => Number(event.admitted_at));
-    let denied = false;
-    for (const [window, duration] of windows) {
-      const retained = times.filter((time) => time > now - duration);
-      const ceiling = limits[scope][window];
-      if (retained.length >= ceiling) {
-        denied = true;
-        retryAt = Math.max(retryAt, retained[retained.length - ceiling]! + duration);
-      }
-    }
-    if (denied) blocked.push(scope);
-  }
-  if (blocked.length) return { kind: "throttled", retryAt, scopes: blocked };
+/** Groups the request's retained rows by scope. Only a request with an email has an email history. */
+function admissionHistory(rows: AdmissionRow[], email: string | undefined): AdmissionHistory {
+  const times = (scope: AuthLimitScope) =>
+    rows.filter((row) => row.scope === scope).map((row) => Number(row.admitted_at));
+  return {
+    ip: times("ip"),
+    global: times("global"),
+    ...(email === undefined ? {} : { email: times("email") }),
+  };
 }
 
 interface AdmissionPolicy {
@@ -63,12 +47,12 @@ function admissionPolicy(namespace: string, configured: AuthLimits): AdmissionPo
     ip: { ...configured.ip },
     global: { ...configured.global },
   };
-  for (const scope of scopes)
-    for (const [window] of windows)
+  for (const scope of authLimitScopes)
+    for (const [window] of authLimitWindows)
       if (!Number.isSafeInteger(limits[scope][window]) || limits[scope][window] <= 0)
         throw new Error(`Invalid auth limits: ${scope}.${window}`);
   const text = JSON.stringify(
-    scopes.map((scope) => windows.map(([window]) => limits[scope][window])),
+    authLimitScopes.map((scope) => authLimitWindows.map(([window]) => limits[scope][window])),
   );
   return { namespace, limits, text };
 }
@@ -135,7 +119,6 @@ export async function postgresAuthAdmission(
 ): Promise<AuthAdmissionStore> {
   const { url, namespace } = connectionTarget(options);
   const policy = admissionPolicy(namespace, options.limits);
-  const { limits } = policy;
   const sql = postgres(url, {
     max: 1,
     prepare: false,
@@ -166,33 +149,21 @@ export async function postgresAuthAdmission(
           if ((await confirmPolicy(transaction, policy)) === "conflict")
             throw new AuthStorageError("unavailable");
           const now = clock();
-          await transaction`DELETE FROM ${table("auth_admission_events")} WHERE admitted_at <= ${now - retention}`;
-          const events = await transaction<
-            AdmissionEvent[]
+          await transaction`DELETE FROM ${table("auth_admission_events")} WHERE admitted_at <= ${now - admissionRetention}`;
+          const rows = await transaction<
+            AdmissionRow[]
           >`SELECT scope, admitted_at FROM ${table("auth_admission_events")} WHERE (scope = 'global' AND identity = '') OR (scope = 'ip' AND identity = ${source}) OR (scope = 'email' AND identity = ${email ?? null}) ORDER BY admitted_at`;
-          const throttled = (checked: AuthLimitScope[]) => exhausted(events, limits, now, checked);
-          const outer = throttled(["ip", "global"]);
-          if (outer) {
-            const recipient = email === undefined ? undefined : throttled(["email"]);
-            if (recipient) outer.retryAt = Math.max(outer.retryAt, recipient.retryAt);
-            return outer;
-          }
-          await transaction`INSERT INTO ${table("auth_admission_events")} (scope, identity, admitted_at) VALUES ('ip', ${source}, ${now}), ('global', '', ${now})`;
-          events.push(
-            { scope: "ip", admitted_at: String(now) },
-            { scope: "global", admitted_at: String(now) },
+          const { charge, admission } = decideAdmission(
+            admissionHistory(rows, email),
+            policy.limits,
+            now,
           );
-          if (email !== undefined) {
-            const recipient = throttled(["email"]);
-            if (recipient) {
-              const chargedOuter = throttled(["ip", "global"]);
-              if (chargedOuter)
-                recipient.retryAt = Math.max(recipient.retryAt, chargedOuter.retryAt);
-              return recipient;
-            }
-            await transaction`INSERT INTO ${table("auth_admission_events")} (scope, identity, admitted_at) VALUES ('email', ${email}, ${now})`;
-          }
-          return { kind: "admitted" };
+          const identity = { global: "", ip: source, email };
+          if (charge.length)
+            await transaction`INSERT INTO ${table("auth_admission_events")} ${transaction(
+              charge.map((scope) => ({ scope, identity: identity[scope], admitted_at: now })),
+            )}`;
+          return admission;
         });
       } catch (error) {
         throw storageFailure(error);
