@@ -2,13 +2,11 @@ import arkenv from "@arkenv/core";
 import { type } from "arktype";
 import { readPostgresOptions } from "@aircastle/adapter-postgres";
 import { authEmail } from "@aircastle/contracts";
-import type { AuthLimits } from "@aircastle/core";
+import type { LocalAuthConfig } from "./features/auth/index.ts";
 
-export type AuthConfig =
-  | { mode: "disabled" }
-  | { mode: "development"; browserOrigin: string; limits: AuthLimits; initialEmail?: string };
-
-export function readAuthConfig(env: Record<string, string | undefined> = process.env): AuthConfig {
+export function readAuthConfig(
+  env: Record<string, string | undefined> = process.env,
+): LocalAuthConfig {
   const mode = env.AIRCASTLE_ENV;
   if (mode === undefined || mode === "" || mode === "production") return { mode: "disabled" };
   if (mode !== "development") throw new Error("AIRCASTLE_ENV must be development or production");
