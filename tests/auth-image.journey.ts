@@ -105,8 +105,6 @@ async function seedContent() {
 }
 
 describe("local auth in the built Docker image", () => {
-  let cookie = "";
-
   beforeAll(async () => {
     port = await bindLoopbackPort(0);
     origin = `http://127.0.0.1:${port}`;
@@ -141,7 +139,7 @@ describe("local auth in the built Docker image", () => {
     expect(await response.text()).toMatch(/<script type="module"[^>]* src="\/assets\//u);
   });
 
-  test("[auth:R3] [auth:R4] [auth:R8] sets up the first super user through the development inbox", async () => {
+  test("[auth:R3] [auth:R4] [auth:R7] [auth:R8] [auth:R10] session lifecycle survives stop/start and recreation", async () => {
     expect(await (await fetch(`${origin}/api/auth/state`)).json()).toEqual({
       kind: "ok",
       value: { kind: "setup-required" },
@@ -159,21 +157,17 @@ describe("local auth in the built Docker image", () => {
     const setCookie = confirmed.headers.get("set-cookie") ?? "";
     expect(setCookie.startsWith(`aircastle_session_${port}=`)).toBe(true);
     expect(setCookie).toMatch(/;\s*HttpOnly(?:;|$)/u);
-    cookie = setCookie.split(";")[0] ?? "";
+    const cookie = setCookie.split(";")[0] ?? "";
     const signedIn = await session(cookie);
     expect(signedIn.status).toBe(200);
     expect(await signedIn.json()).toMatchObject({ value: { user: { email: "dev@example.test" } } });
-  });
 
-  test("[auth:R7] [auth:R8] [auth:R10] keeps the session and clears the inbox across stop and start", async () => {
     await compose(["stop", "aircastle"]);
     await compose(["start", "aircastle"]);
     await compose(["up", "--detach", "--wait", "aircastle"]);
     expect((await session(cookie)).status).toBe(200);
     expect(await inbox()).toEqual({ kind: "ok", value: [] });
-  });
 
-  test("[auth:R7] [auth:R8] [auth:R10] keeps the session and clears the inbox across container recreation", async () => {
     await compose(["up", "--detach", "--wait", "--force-recreate", "aircastle"]);
     expect((await session(cookie)).status).toBe(200);
     expect(await inbox()).toEqual({ kind: "ok", value: [] });
