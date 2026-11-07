@@ -9,7 +9,7 @@ import type {
 import type { PostgresOptions } from "../index.ts";
 import { identifier } from "../identifier.ts";
 import { connectionTarget } from "../layout.ts";
-import { isDriverError, storageFailure } from "./failure.ts";
+import { storageFailure } from "./failure.ts";
 import { initializeAuthLayout } from "./layout.ts";
 import { lockId } from "./lock.ts";
 
@@ -155,8 +155,7 @@ export async function postgresAuthAdmission(
           return { kind: "admitted" };
         });
       } catch (error) {
-        if (!isDriverError(error)) throw error;
-        throw storageFailure("unavailable", error);
+        throw storageFailure(error);
       }
     },
     close: () => (closing ??= sql.end({ timeout: 5 })),

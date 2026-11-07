@@ -54,7 +54,7 @@ const tlsCodes = new Set([
  * and the socket and TLS errors it passes through, alone or grouped when a host name has several
  * addresses. Other coded errors, such as Node's `ERR_` errors, are bugs.
  */
-export function isDriverError(error: unknown): error is Error {
+function isDriverError(error: unknown): error is Error {
   if (error instanceof AuthStorageError) return false;
   if (error instanceof postgres.PostgresError) return true;
   if (error instanceof AggregateError)
@@ -69,8 +69,21 @@ export function isDriverError(error: unknown): error is Error {
   );
 }
 
-/** Wraps a driver error, keeping it as the cause and its SQLSTATE or connection code for diagnostics. */
-export function storageFailure(kind: AuthStorageError["kind"], error: Error): AuthStorageError {
+/**
+ * The error to rethrow from a failed storage call. A driver error becomes an AuthStorageError that
+ * keeps it as the cause, with its SQLSTATE or connection code for diagnostics. A driver error other
+ * than a SQL error during commit leaves the outcome unknown. Any other error, including an
+ * AuthStorageError, is a bug or a deliberate answer and passes through unchanged.
+ */
+export function storageFailure(
+  error: unknown,
+  phase: "operation" | "commit" = "operation",
+): unknown {
+  if (!isDriverError(error)) return error;
+  const kind =
+    phase === "commit" && !(error instanceof postgres.PostgresError)
+      ? "commit-unknown"
+      : "unavailable";
   return new AuthStorageError(kind, {
     cause: error,
     ...("code" in error && typeof error.code === "string" ? { code: error.code } : {}),
