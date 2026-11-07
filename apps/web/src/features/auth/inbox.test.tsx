@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vite-plus/test'
-import { displayHttp, expectNoShell, failure, mountAuth, ok, session } from './test-support'
+import { displayHttp, ok } from '@/display-http'
+import { expectNoShell, failure, mountAuth, session } from './test-support'
 
 const newest = {
   read: false,

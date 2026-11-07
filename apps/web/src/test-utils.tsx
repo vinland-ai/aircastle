@@ -1,8 +1,8 @@
+import { displayHttp, ok } from '@/display-http'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router'
 import { createAppRouter } from './router'
-import { vi } from 'vite-plus/test'
 
 const protectedPath =
   '/dash/workspaces/11111111-1111-4111-8111-111111111111/projects/22222222-2222-4222-8222-222222222222/collections'
@@ -14,36 +14,6 @@ const session = {
     authority: 'super_user',
   },
   expiresAt: Date.UTC(2030, 0, 15),
-}
-
-export function ok(value: unknown) {
-  return Response.json({ kind: 'ok', value })
-}
-
-export function displayHttp(
-  routes: Record<string, (request: Request) => Response | Promise<Response>> = {},
-) {
-  const requests: Request[] = []
-  const handlers: Record<string, (request: Request) => Response | Promise<Response>> = {
-    'GET /api/auth/state': () => ok({ kind: 'signed-out' }),
-    ...routes,
-  }
-  const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
-    const request = new Request(
-      input instanceof Request ? input : new URL(input, window.location.href),
-      init,
-    )
-    requests.push(request.clone())
-    const handler = handlers[`${request.method} ${new URL(request.url).pathname}`]
-    return handler
-      ? handler(request.clone())
-      : Response.json({ kind: 'temporary-failure' }, { status: 503 })
-  })
-  const calls = (path: string) =>
-    requests.filter(
-      (request) => request.method === 'POST' && new URL(request.url).pathname === `/api${path}`,
-    )
-  return { fetch, calls }
 }
 
 export function authenticatedDisplayHttp() {

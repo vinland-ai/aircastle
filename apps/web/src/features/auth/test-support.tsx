@@ -1,7 +1,8 @@
+import { displayHttp } from '@/display-http'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router'
-import { expect, vi } from 'vite-plus/test'
+import { expect } from 'vite-plus/test'
 import { createAppRouter } from '@/router'
 
 export const protectedPath =
@@ -16,10 +17,6 @@ export const session = {
   expiresAt: Date.UTC(2030, 0, 15),
 }
 
-export function ok(value: unknown) {
-  return Response.json({ kind: 'ok', value })
-}
-
 export function failure(kind: string, status = 503, fields: object = {}) {
   return Response.json({ kind, ...fields }, { status })
 }
@@ -30,31 +27,6 @@ export function deferredResponse() {
     resolve = done
   })
   return { promise, resolve }
-}
-
-export function displayHttp(
-  routes: Record<string, (request: Request) => Response | Promise<Response>> = {},
-) {
-  const requests: Request[] = []
-  const handlers: Record<string, (request: Request) => Response | Promise<Response>> = {
-    'GET /api/auth/state': () => ok({ kind: 'signed-out' }),
-    ...routes,
-  }
-  const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
-    const request = new Request(
-      input instanceof Request ? input : new URL(input, window.location.href),
-      init,
-    )
-    requests.push(request.clone())
-    const handler = handlers[`${request.method} ${new URL(request.url).pathname}`]
-    return handler ? handler(request.clone()) : failure('temporary-failure')
-  })
-  function calls(path: string, method = 'POST') {
-    return requests.filter(
-      (request) => request.method === method && new URL(request.url).pathname === `/api${path}`,
-    )
-  }
-  return { fetch, calls, requests }
 }
 
 export async function mountAuth(path: string, http: ReturnType<typeof displayHttp>) {

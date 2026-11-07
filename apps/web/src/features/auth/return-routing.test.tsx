@@ -1,14 +1,7 @@
 import { act, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vite-plus/test'
-import {
-  displayHttp,
-  expectNoShell,
-  mountAuth,
-  ok,
-  session,
-  submitSignIn,
-  submitSetup,
-} from './test-support'
+import { displayHttp, ok } from '@/display-http'
+import { expectNoShell, mountAuth, session, submitSignIn, submitSetup } from './test-support'
 
 describe('Requested destinations over display-only HTTP, without authorization proof', () => {
   it.each(['retained', 'revoked'] as const)(

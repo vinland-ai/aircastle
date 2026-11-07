@@ -1,3 +1,4 @@
+import { displayHttp, ok } from '../src/display-http'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider, createBrowserHistory } from '@tanstack/react-router'
@@ -11,38 +12,18 @@ const session = {
   user: { ...user, id: 'display-only-shell-user', authority: 'super_user' },
   expiresAt: Date.UTC(2030, 0, 15),
 }
-const responses: Record<string, unknown> = {
-  'POST /api/auth/activity': session,
-  'POST /api/auth/entry': {
-    destination: {
-      kind: 'project-page',
-      workspaceId: '11111111-1111-4111-8111-111111111111',
-      projectId: '22222222-2222-4222-8222-222222222222',
-      page: 'collections',
-    },
-  },
-}
-const displayOnlyFetch: typeof globalThis.fetch = async (input, init) => {
-  const request = new Request(
-    input instanceof Request ? input : new URL(input, location.href),
-    init,
-  )
-  const key = `${request.method} ${new URL(request.url).pathname}`
-  if (key === 'GET /api/auth/state')
-    return Response.json({
-      kind: 'ok',
-      value:
+const display = displayHttp(
+  {
+    'GET /api/auth/state': () =>
+      ok(
         location.pathname === '/sign-in'
           ? { kind: 'signed-out' }
           : { kind: 'authenticated', session },
-    })
-  if (!Object.hasOwn(responses, key))
-    return Response.json({ kind: 'temporary-failure' }, { status: 503 })
-  if (key === 'POST /api/auth/entry') {
-    const entry = await request.json()
-    return Response.json({
-      kind: 'ok',
-      value: {
+      ),
+    'POST /api/auth/activity': () => ok(session),
+    'POST /api/auth/entry': async (request) => {
+      const entry = await request.json()
+      return ok({
         session,
         destination:
           entry.kind === 'visit'
@@ -53,12 +34,12 @@ const displayOnlyFetch: typeof globalThis.fetch = async (input, init) => {
                 projectId: '22222222-2222-4222-8222-222222222222',
                 page: 'collections',
               },
-      },
-    })
-  }
-  return Response.json({ kind: 'ok', value: responses[key] })
-}
-const router = createAppRouter(createBrowserHistory(), { fetch: displayOnlyFetch })
+      })
+    },
+  },
+  location.href,
+)
+const router = createAppRouter(createBrowserHistory(), { fetch: display.fetch })
 
 document
   .querySelectorAll('head > title, head > meta[name="description"]')

@@ -1,14 +1,7 @@
 import { act, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vite-plus/test'
-import {
-  deferredResponse,
-  displayHttp,
-  expectNoShell,
-  failure,
-  mountAuth,
-  ok,
-  session,
-} from './test-support'
+import { displayHttp, ok } from '@/display-http'
+import { deferredResponse, expectNoShell, failure, mountAuth, session } from './test-support'
 
 describe('Confirmation display over HTTP doubles, without authentication proof', () => {
   it.each(['setup', 'sign-in'] as const)(

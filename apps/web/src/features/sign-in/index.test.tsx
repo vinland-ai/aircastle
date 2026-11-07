@@ -1,6 +1,7 @@
 import { screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vite-plus/test'
-import { displayHttp, ok, renderApp } from '@/test-utils'
+import { displayHttp, ok } from '@/display-http'
+import { renderApp } from '@/test-utils'
 
 describe('Sign in with display-only signed-out HTTP', () => {
   it('opens a standalone Aircastle page without CMS navigation or upstream content', async () => {

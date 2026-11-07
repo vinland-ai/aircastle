@@ -1,13 +1,12 @@
 import { act, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
+import { displayHttp, ok } from '@/display-http'
 import {
   deferredResponse,
-  displayHttp,
   expectFieldError,
   expectNoShell,
   failure,
   mountAuth,
-  ok,
   submitSetup,
   submitSignIn,
 } from './test-support'

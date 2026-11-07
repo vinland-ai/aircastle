@@ -1,12 +1,11 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vite-plus/test'
+import { displayHttp, ok } from '@/display-http'
 import {
   deferredResponse,
-  displayHttp,
   expectNoShell,
   failure,
   mountAuth,
-  ok,
   protectedPath,
   session,
 } from './test-support'
