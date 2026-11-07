@@ -1,32 +1,29 @@
-import { Outlet, useRouteContext, useRouter } from '@tanstack/react-router'
+import { Outlet, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import App from '@/App'
 import { AppShell, AccountControls } from '@/components/shell'
 import { Button } from '@/components/ui/button'
-import { AuthContext, useAuth } from './context'
+import { useAuth } from './context'
 import { WorkspacePage } from './workspaces'
 
 export function AuthRoot() {
-  const { auth, view } = useRouteContext({ from: '__root__' })
+  const { view } = useAuth()
   const router = useRouter()
   return (
-    <AuthContext value={{ auth, view }}>
-      <App>
-        {view.kind === 'disabled' ? (
-          <main className="p-8">
-            Local authentication is not enabled. For local development, set
-            AIRCASTLE_ENV=development.
-          </main>
-        ) : view.kind === 'failure' ? (
-          <main className="space-y-4 p-8">
-            <p role="alert">Could not load your session. Please try again.</p>
-            <Button onClick={() => void router.invalidate()}>Retry</Button>
-          </main>
-        ) : (
-          <Outlet />
-        )}
-      </App>
-    </AuthContext>
+    <App>
+      {view.kind === 'disabled' ? (
+        <main className="p-8">
+          Local authentication is not enabled. For local development, set AIRCASTLE_ENV=development.
+        </main>
+      ) : view.kind === 'failure' ? (
+        <main className="space-y-4 p-8">
+          <p role="alert">Could not load your session. Please try again.</p>
+          <Button onClick={() => void router.invalidate()}>Retry</Button>
+        </main>
+      ) : (
+        <Outlet />
+      )}
+    </App>
   )
 }
 

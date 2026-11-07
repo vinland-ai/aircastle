@@ -1,11 +1,4 @@
-import { createContext, useContext } from 'react'
-import type { BrowserAuth } from './browser'
-import type { AuthView } from './guard'
+import { useRouteContext } from '@tanstack/react-router'
 
-export const AuthContext = createContext<{ auth: BrowserAuth; view: AuthView } | null>(null)
-
-export function useAuth() {
-  const value = useContext(AuthContext)
-  if (!value) throw new Error('Auth boundary is required')
-  return value
-}
+/** The browser auth and the current navigation's view, from the root route's context. */
+export const useAuth = () => useRouteContext({ from: '__root__' })
