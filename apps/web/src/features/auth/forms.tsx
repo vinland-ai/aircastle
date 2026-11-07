@@ -99,45 +99,7 @@ export function AuthForm({ purpose }: { purpose: Purpose }) {
   return (
     <>
       <form noValidate onSubmit={submit}>
-        <FieldGroup className="gap-4">
-          {purpose === 'setup' && (
-            <Field data-invalid={!!errors.name}>
-              <FieldLabel htmlFor="name">Name</FieldLabel>
-              <InputGroup>
-                <InputGroupInput
-                  id="name"
-                  name="name"
-                  autoComplete="name"
-                  aria-invalid={!!errors.name}
-                  aria-describedby={errors.name ? 'name-error' : undefined}
-                />
-              </InputGroup>
-              {errors.name && <FieldError id="name-error">{errors.name}</FieldError>}
-            </Field>
-          )}
-          <Field data-invalid={!!errors.email}>
-            <FieldLabel htmlFor="email">Email</FieldLabel>
-            <InputGroup>
-              <InputGroupInput
-                id="email"
-                name="email"
-                autoFocus={purpose === 'sign-in'}
-                placeholder="your.email@example.com"
-                type="email"
-                autoComplete="email"
-                aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? 'email-error' : undefined}
-              />
-              <InputGroupAddon align="inline-start">
-                <AtSignIcon aria-hidden="true" />
-              </InputGroupAddon>
-            </InputGroup>
-            {errors.email && <FieldError id="email-error">{errors.email}</FieldError>}
-          </Field>
-          <Button className="w-full" type="submit" disabled={pending || seconds > 0}>
-            {pending ? 'Sending…' : purpose === 'setup' ? 'Continue' : 'Send sign-in link'}
-          </Button>
-        </FieldGroup>
+        <AccountFields purpose={purpose} errors={errors} pending={pending} seconds={seconds} />
       </form>
       {outcome.kind === 'failed' && <p role="alert">{outcome.message}</p>}
       {seconds > 0 && (
@@ -158,5 +120,59 @@ export function AuthForm({ purpose }: { purpose: Purpose }) {
         </div>
       )}
     </>
+  )
+}
+
+function AccountFields({
+  purpose,
+  errors,
+  pending,
+  seconds,
+}: {
+  purpose: Purpose
+  errors: FieldErrors
+  pending: boolean
+  seconds: number
+}) {
+  return (
+    <FieldGroup className="gap-4">
+      {purpose === 'setup' && (
+        <Field data-invalid={!!errors.name}>
+          <FieldLabel htmlFor="name">Name</FieldLabel>
+          <InputGroup>
+            <InputGroupInput
+              id="name"
+              name="name"
+              autoComplete="name"
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? 'name-error' : undefined}
+            />
+          </InputGroup>
+          {errors.name && <FieldError id="name-error">{errors.name}</FieldError>}
+        </Field>
+      )}
+      <Field data-invalid={!!errors.email}>
+        <FieldLabel htmlFor="email">Email</FieldLabel>
+        <InputGroup>
+          <InputGroupInput
+            id="email"
+            name="email"
+            autoFocus={purpose === 'sign-in'}
+            placeholder="your.email@example.com"
+            type="email"
+            autoComplete="email"
+            aria-invalid={!!errors.email}
+            aria-describedby={errors.email ? 'email-error' : undefined}
+          />
+          <InputGroupAddon align="inline-start">
+            <AtSignIcon aria-hidden="true" />
+          </InputGroupAddon>
+        </InputGroup>
+        {errors.email && <FieldError id="email-error">{errors.email}</FieldError>}
+      </Field>
+      <Button className="w-full" type="submit" disabled={pending || seconds > 0}>
+        {pending ? 'Sending…' : purpose === 'setup' ? 'Continue' : 'Send sign-in link'}
+      </Button>
+    </FieldGroup>
   )
 }
