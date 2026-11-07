@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { AuthStorageError } from "@aircastle/core";
 import type { AuthAdmissionStore, AuthLimitScope } from "@aircastle/core";
+import { postgresAuthAdmission } from "../index.ts";
 import { defaults, generous, request, start, withAdmission } from "../test-support/admission.ts";
 
 async function withAdmissionWorker(
@@ -104,6 +105,35 @@ const admitAfterReconnect = (admission: AuthAdmissionStore) =>
     .toBe("admitted");
 
 describe("auth admission policy across instances and processes", () => {
+  test("stores the ceilings in the order every build compares", async () => {
+    await withAdmission(async ({ open, url, namespace }) => {
+      await open();
+      const sql = postgres(url, { max: 1, onnotice: () => {} });
+      try {
+        const [row] = await sql<{ policy: string }[]>`
+          SELECT policy FROM ${sql(namespace)}.auth_admission_policy WHERE singleton = 1`;
+        expect(row?.policy).toBe("[[5,20],[10,30],[30,100]]");
+      } finally {
+        await sql.end();
+      }
+    });
+  });
+
+  test.each([
+    ["zero", 0],
+    ["negative", -1],
+    ["fractional", 1.5],
+    ["not a number", Number.NaN],
+    ["unsafe", 2 ** 53],
+  ])("refuses a %s ceiling before connecting", async (_label, ceiling) => {
+    await expect(
+      postgresAuthAdmission({
+        url: "postgres://aircastle@127.0.0.1:1/aircastle",
+        limits: { ...defaults, ip: { fiveMinutes: 10, oneHour: ceiling } },
+      }),
+    ).rejects.toThrow("Invalid auth limits: ip.oneHour");
+  });
+
   test("an active namespace refuses different limits and accepts matching peers", async () => {
     await withAdmission(async ({ open }) => {
       const first = await open();
