@@ -144,18 +144,19 @@ type DashboardPagePath =
   (typeof navigationPages)[number]['path'] extends `/dash/workspaces/$workspaceId/projects/$projectId/${infer Path}`
     ? Path
     : never
-const pageRoutes = navigationPages.map(({ path, title }) =>
-  createRoute({
+const pageRoutes = navigationPages.map(({ path, title }) => {
+  const page = path.replace(
+    '/dash/workspaces/$workspaceId/projects/$projectId/',
+    '',
+  ) as DashboardPagePath
+  return createRoute({
     getParentRoute: () => dashboardRoute,
-    path: path.replace(
-      '/dash/workspaces/$workspaceId/projects/$projectId/',
-      '',
-    ) as DashboardPagePath,
-    staticData: { access: access.projectPage(path.split('/').at(-1) ?? '') },
+    path: page,
+    staticData: { access: access.projectPage(page) },
     component: DashboardSkeleton,
     head: () => ({ meta: [{ title: `Aircastle - ${title}` }] }),
-  }),
-)
+  })
+})
 const routeTree = rootRoute.addChildren([
   indexRoute,
   dashboardEntryRoute,

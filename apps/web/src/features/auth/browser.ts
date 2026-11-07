@@ -1,13 +1,12 @@
 import { redirect } from '@tanstack/react-router'
 import type { RouteAccess, RouteParams } from './access'
+import type { AuthDestination, ProtectedDestination } from '@aircastle/contracts'
 import {
   createAuthHttp,
   destinationPath,
   type AuthBrowserOptions,
   type BrowserSession,
-  type Destination,
   type HttpResult,
-  type ProtectedDestination,
 } from './http'
 
 export type Confirmation = {
@@ -55,7 +54,7 @@ export function createBrowserAuth(options: AuthBrowserOptions = {}) {
       handoff = undefined
     },
     async entry(body: object) {
-      return request<{ destination: Destination; session: BrowserSession }>('/auth/entry', body)
+      return request<{ destination: AuthDestination; session: BrowserSession }>('/auth/entry', body)
     },
     async enter(
       route: { access: RouteAccess; params: RouteParams },
@@ -115,7 +114,7 @@ export function createBrowserAuth(options: AuthBrowserOptions = {}) {
         if (activity.kind !== 'ok') return { kind: 'failure' }
         return { kind: 'authenticated', session: activity.value }
       }
-      const entry = await request<{ destination: Destination; session: BrowserSession }>(
+      const entry = await request<{ destination: AuthDestination; session: BrowserSession }>(
         '/auth/entry',
         guard.kind === 'resolve'
           ? { kind: 'resolve' }

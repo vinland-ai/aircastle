@@ -1,3 +1,5 @@
+import type { AuthDestination } from '@aircastle/contracts'
+
 export interface AuthBrowserOptions {
   fetch?: typeof globalThis.fetch
 }
@@ -7,14 +9,6 @@ export interface BrowserSession {
   expiresAt: number
 }
 
-export type Destination =
-  | { kind: 'dashboard' }
-  | { kind: 'create-workspace' }
-  | { kind: 'workspaces' }
-  | { kind: 'workspace-projects'; workspaceId: string }
-  | { kind: 'project-page'; workspaceId: string; projectId: string; page: string }
-
-export type ProtectedDestination = Exclude<Destination, { kind: 'dashboard' | 'create-workspace' }>
 export type HttpResult<Value> =
   | { kind: 'ok'; value: Value }
   | {
@@ -63,7 +57,7 @@ export function createAuthHttp(options: AuthBrowserOptions) {
   }
 }
 
-export function destinationPath(destination: Destination): string {
+export function destinationPath(destination: AuthDestination): string {
   switch (destination.kind) {
     case 'dashboard':
       return '/dash'

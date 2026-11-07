@@ -1,4 +1,7 @@
-import type { ProtectedDestination } from './http'
+import type { ProtectedDestination } from '@aircastle/contracts'
+
+/** A project page that a protected route can name, as the API accepts it. */
+export type ProjectPage = Extract<ProtectedDestination, { kind: 'project-page' }>['page']
 
 /** What a signed-in visit must prove before a protected route mounts. */
 export type Guard =
@@ -41,7 +44,7 @@ export const access = {
       ? { kind: 'visit', destination: { kind: 'workspace-projects', workspaceId } }
       : undefined
   }),
-  projectPage: (page: string) =>
+  projectPage: (page: ProjectPage) =>
     protectedRoute((params) => {
       const workspaceId = id(params.workspaceId)
       const projectId = id(params.projectId)
@@ -49,7 +52,7 @@ export const access = {
         ? { kind: 'visit', destination: { kind: 'project-page', workspaceId, projectId, page } }
         : undefined
     }),
-} as const satisfies Record<string, RouteAccess | ((page: string) => RouteAccess)>
+} as const satisfies Record<string, RouteAccess | ((page: ProjectPage) => RouteAccess)>
 
 /**
  * Access for a path that matches no route. Under `/dash`, in any casing, the not-found page needs a

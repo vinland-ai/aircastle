@@ -3,7 +3,8 @@ import { useRouter } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { useAuth } from './context'
 import type { Confirmation } from './browser'
-import { destinationPath, type Destination, type HttpResult } from './http'
+import type { AuthDestination } from '@aircastle/contracts'
+import { destinationPath, type HttpResult } from './http'
 
 export function ConfirmationPage({ confirmation }: { confirmation: Confirmation }) {
   const { auth } = useAuth()
@@ -37,10 +38,13 @@ export function ConfirmationPage({ confirmation }: { confirmation: Confirmation 
               if (submitting.current) return
               submitting.current = true
               setPending(true)
-              const confirmed = await auth.request<{ destination: Destination }>('/auth/confirm', {
-                purpose: confirmation.purpose,
-                token: confirmation.token,
-              })
+              const confirmed = await auth.request<{ destination: AuthDestination }>(
+                '/auth/confirm',
+                {
+                  purpose: confirmation.purpose,
+                  token: confirmation.token,
+                },
+              )
               submitting.current = false
               setPending(false)
               if (confirmed.kind === 'ok') {
