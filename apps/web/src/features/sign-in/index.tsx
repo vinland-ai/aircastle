@@ -5,7 +5,7 @@ import { FloatingFrames } from './floating-frames'
 import { AuthForm, ConfirmationPage, useAuth } from '@/features/auth'
 
 export function SignInPage({ purpose = 'sign-in' }: { purpose?: 'setup' | 'sign-in' }) {
-  const { auth } = useAuth()
+  const { view } = useAuth()
   return (
     <main
       data-theme-scope="marketing"
@@ -40,8 +40,8 @@ export function SignInPage({ purpose = 'sign-in' }: { purpose?: 'setup' | 'sign-
           <div className="flex items-center gap-2 lg:hidden">
             <span aria-hidden="true" className="brand-logo block size-7 shrink-0" />
           </div>
-          {auth.confirmation ? (
-            <ConfirmationPage key={auth.confirmation.token} confirmation={auth.confirmation} />
+          {view.kind === 'confirming' ? (
+            <ConfirmationPage key={view.confirmation.token} confirmation={view.confirmation} />
           ) : (
             <>
               <h1 className="text-2xl font-semibold tracking-wide">

@@ -12,9 +12,6 @@ export function createBrowserAuth(options: AuthBrowserOptions = {}) {
     get returnTo() {
       return memory.requested
     },
-    get confirmation() {
-      return memory.confirmation
-    },
     clearConfirmation() {
       memory = { ...memory, confirmation: undefined }
     },

@@ -14,6 +14,7 @@ export type Confirmation = { purpose: Purpose; token: string; preview: HttpResul
 
 export type AuthView =
   | { kind: 'public' }
+  | { kind: 'confirming'; confirmation: Confirmation }
   | { kind: 'authenticated'; session: AuthSession }
   | { kind: 'disabled' }
   | { kind: 'failure' }
@@ -72,8 +73,11 @@ const redirect = (to: string, memory: Memory, handoff?: Handoff): Hop => ({
   handoff,
 })
 
-const showsConfirmation = ({ access, token }: Visit, memory: Memory) =>
-  access.kind === 'account' && !token && memory.confirmation?.purpose === access.purpose
+/** The remembered confirmation, when this visit to its account page has no new token. */
+const shownConfirmation = ({ access, token }: Visit, { confirmation }: Memory) =>
+  access.kind === 'account' && !token && confirmation?.purpose === access.purpose
+    ? confirmation
+    : undefined
 
 /**
  * Decides one hop of a navigation without touching the router or module state. A hop reads the
@@ -85,8 +89,9 @@ export async function decideHop(
   handed: Handoff | undefined,
   calls: AuthCalls,
 ): Promise<Hop> {
-  if (visit.access.kind === 'public' || showsConfirmation(visit, memory))
-    return render({ kind: 'public' }, memory)
+  if (visit.access.kind === 'public') return render({ kind: 'public' }, memory)
+  const confirmation = shownConfirmation(visit, memory)
+  if (confirmation) return render({ kind: 'confirming', confirmation }, memory)
   if (handed?.kind === 'view') return render(handed.view, memory)
   const state = handed ? ({ kind: 'ok', value: handed.state } as const) : await calls.state()
   if (state.kind !== 'ok') return render({ kind: 'failure' }, memory)
