@@ -217,6 +217,45 @@ test.describe('mobile drawer', () => {
   }
 })
 
+test('resizing does not move the mobile drawer trigger during a pointer press', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await visit(page)
+  await visibleSidebarTrigger(page).click()
+  await expect(visibleSidebarTrigger(page)).toHaveAttribute('aria-expanded', 'false')
+  await page.evaluate(() => {
+    document.querySelector('header')!.addEventListener('transitionrun', (event) => {
+      for (const animation of (event.target as Element).getAnimations()) {
+        animation.pause()
+        animation.currentTime = 0
+      }
+    })
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  const mobile = visibleSidebarTrigger(page)
+  await expect(mobile).toHaveAttribute('aria-expanded', 'false')
+  await page.evaluate(() => new Promise(requestAnimationFrame))
+  const box = await mobile.boundingBox()
+  expect(box).not.toBeNull()
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+  await page.mouse.down()
+  await page.evaluate(() => {
+    for (const animation of document.querySelector('header')!.getAnimations({ subtree: true })) {
+      animation.finish()
+    }
+  })
+  await page.mouse.up()
+  await expect(page.getByRole('dialog', { name: 'Sidebar' })).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+  await expect(mobile).toHaveAttribute('aria-expanded', 'true')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toBeHidden()
+  await expect(mobile).toBeFocused()
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await expect(visibleSidebarTrigger(page)).toHaveAttribute('aria-expanded', 'false')
+})
+
 test('desktop collapse and mobile drawer state remain independent across resizing', async ({
   page,
 }) => {
