@@ -41,7 +41,7 @@ export async function playPreview(page: Page, theme?: 'light' | 'dark') {
   await stage.scrollIntoViewIfNeeded()
   await expect(stage).toHaveAttribute('data-demo-playing', 'true')
   let played = 0
-  /** Jumps the preview to a moment of its timeline, drawing only that one frame instead of every frame on the way. */
+  /** Jumps the preview to a moment of its timeline, drawing only that one frame instead of every frame on the way. Endless CSS loops such as pulses and sheens are paused after each jump: on a shared CI runner they kept the renderer busy and made every check several times slower. Finite animations and transitions still play. */
   const jumpTo = async (timeline: number) => {
     const target = Math.ceil(timeline / playbackRate)
     if (target < played) throw new Error(`Cannot jump back from ${played}ms to ${target}ms`)
@@ -53,6 +53,13 @@ export async function playPreview(page: Page, theme?: 'light' | 'dark') {
   return {
     stage,
     jumpTo,
+    /** Restarts the endless CSS loops until the next jump, for checks that watch one run. */
+    async playLoops() {
+      await page.evaluate(() => {
+        for (const animation of document.getAnimations())
+          if (animation.effect?.getComputedTiming().iterations === Infinity) animation.play()
+      })
+    },
     /** Plans a check at a moment of the timeline; `play` runs the plan in time order. */
     at(at: number, label: string | undefined, check: () => Promise<void>) {
       beats.push({ at, label, check })
@@ -80,6 +87,8 @@ async function rendered(page: Page) {
         channel.port1.onmessage = () => resolve()
         channel.port2.postMessage(null)
       })
+    for (const animation of document.getAnimations())
+      if (animation.effect?.getComputedTiming().iterations === Infinity) animation.pause()
   })
 }
 

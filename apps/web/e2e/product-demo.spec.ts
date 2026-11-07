@@ -420,6 +420,7 @@ test('the story opens: ⌘J opens Ask Air, the idea is typed and sent, the agent
         1,
       )
       expect(rowOutline).toMatch(/ 1\.5px inset$|inset .* 1\.5px$/)
+      await story.playLoops()
       const avatarBrightness = new Set<string>()
       for (let sample = 0; sample < 4; sample++) {
         expect(await tabMatchesOutline()).toBe(true)
