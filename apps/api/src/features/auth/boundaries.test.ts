@@ -3,7 +3,7 @@ import pino from "pino";
 import type { AuthLimits } from "@aircastle/core";
 import { createApp } from "../../app.ts";
 import { createLocalAuth } from "./index.ts";
-import { dispatched } from "./runtime.ts";
+import { dispatched } from "./dispatch.ts";
 import { browserOrigin, claim, issue, start, withAuth } from "./test-support/fixture.ts";
 
 const defaults: AuthLimits = {
