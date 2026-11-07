@@ -40,12 +40,23 @@ export type {
   SortValue,
   StoredPage,
 } from "./list.ts";
-export { AuthStorageError } from "./auth.ts";
+export {
+  admissionRetention,
+  authLimitScopes,
+  authLimitWindows,
+  decideAdmission,
+} from "./admission.ts";
 export type {
-  AuthLimits,
-  AuthLimitScope,
+  AdmissionDecision,
+  AdmissionHistory,
   AuthAdmission,
   AuthAdmissionStore,
+  AuthLimits,
+  AuthLimitScope,
+  AuthLimitWindow,
+} from "./admission.ts";
+export { AuthStorageError } from "./auth.ts";
+export type {
   AuthDestination,
   ProtectedDestination,
   AuthUserRecord,

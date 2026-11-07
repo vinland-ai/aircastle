@@ -1,23 +1,7 @@
 import type { ProtectedDestination } from "@aircastle/contracts";
+import type { AuthLimitScope } from "./admission.ts";
 
 export type { AuthDestination, ProtectedDestination } from "@aircastle/contracts";
-
-export interface AuthLimits {
-  email: { fiveMinutes: number; oneHour: number };
-  ip: { fiveMinutes: number; oneHour: number };
-  global: { fiveMinutes: number; oneHour: number };
-}
-
-export type AuthLimitScope = "email" | "ip" | "global";
-
-export type AuthAdmission =
-  | { kind: "admitted" }
-  | { kind: "throttled"; retryAt: number; scopes: AuthLimitScope[] };
-
-export interface AuthAdmissionStore {
-  admit: (request: { source: string; email?: string }) => Promise<AuthAdmission>;
-  close: () => Promise<void>;
-}
 
 export interface AuthUserRecord {
   id: string;
