@@ -267,3 +267,27 @@ export async function signIn(server: AuthServer, email = "alex@example.test") {
   expect(response.status).toBe(200);
   return { cookie: confirmedCookie(response), token };
 }
+
+/** User and session counts read straight from the namespace's tables. */
+export async function credentialCounts(sql: AuthFixture["sql"], namespace: string) {
+  const [counts] = await sql<{ users: number; sessions: number }[]>`
+    SELECT
+      (SELECT count(*)::integer FROM ${sql(namespace)}.auth_users) AS users,
+      (SELECT count(*)::integer FROM ${sql(namespace)}.auth_sessions) AS sessions`;
+  if (!counts) throw new Error("Independent durable credential counts must return a row");
+  return counts;
+}
+
+/** Issues a link for a purpose and returns the body that redeems it. */
+export async function pendingLink(
+  server: AuthServer,
+  purpose: "setup" | "sign-in",
+  returnTo?: ProtectedDestination,
+) {
+  const input = returnTo === undefined ? {} : { returnTo };
+  const { token } =
+    purpose === "setup"
+      ? await issueSetupLink(server, input)
+      : await issueSignInLink(server, input);
+  return { purpose, token };
+}

@@ -1,10 +1,18 @@
 import pino from "pino";
 import { AuthStorageError } from "@aircastle/core";
-import { expect, test } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
+import type { AuthLimits } from "@aircastle/core";
 import { createAuthEventLogger } from "./index.ts";
 import type { AuthEvent } from "./index.ts";
 import { captureFaults, storageFaults } from "./test-support/faults.ts";
 import { claim, limits, withAuth } from "./test-support/fixture.ts";
+
+const defaults: AuthLimits = {
+  email: { fiveMinutes: 5, oneHour: 20 },
+  ip: { fiveMinutes: 10, oneHour: 30 },
+  global: { fiveMinutes: 30, oneHour: 100 },
+};
+const setup = { name: "Alex", email: "alex@example.test" };
 
 function applicationSink() {
   const lines: string[] = [];
@@ -357,4 +365,79 @@ test("a bug in background issuance reconciliation drops the capture and logs a s
       }),
     },
   );
+});
+
+describe("bounded auth diagnostics", () => {
+  test("actual app logs and auth events stay bounded during a fixed-time flood", async () => {
+    const logs: string[] = [];
+    const logger = pino(
+      { level: "info" },
+      {
+        write: (chunk: string) => {
+          logs.push(chunk);
+        },
+      },
+    );
+    await withAuth(
+      async ({ open, events }) => {
+        const server = await open();
+        for (let index = 0; index < 100; index++)
+          await server.request("/auth/setup", {
+            ...setup,
+            email: `recipient${index}@example.test`,
+          });
+        expect(events.some((event) => event.kind === "request-blocked")).toBe(true);
+        expect(events.length).toBeGreaterThan(0);
+        const firstEvents = events.length;
+        const firstLogs = logs.length;
+        for (let index = 100; index < 200; index++)
+          expect(
+            (
+              await server.request("/auth/setup", {
+                ...setup,
+                email: `recipient${index}@example.test`,
+              })
+            ).status,
+          ).toBe(429);
+        expect(events.length).toBe(firstEvents);
+        expect(logs.length).toBe(firstLogs);
+      },
+      { limits: defaults, logger },
+    );
+  });
+  test("request paths, errors and projections never leak actual credential canaries", async () => {
+    const logs: string[] = [];
+    const logger = pino(
+      { level: "info" },
+      {
+        write: (chunk: string) => {
+          logs.push(chunk);
+        },
+      },
+    );
+    await withAuth(
+      async ({ open, events }) => {
+        const server = await open();
+        const session = await claim(server);
+        const secret = await server.storage.signingSecret();
+        const cookieSecret = session.cookie.slice(session.cookie.indexOf("=") + 1);
+        const body = await (
+          await server.request("/auth/session", undefined, session.cookie)
+        ).text();
+        await server.request(`/auth/${session.link.token}`, {}, session.cookie);
+        await server.request("/auth/confirm", { purpose: "setup", token: session.link.token });
+        const output = JSON.stringify({ logs, events, body });
+        for (const credential of [
+          session.link.token,
+          secret,
+          cookieSecret,
+          session.link.message.html,
+        ]) {
+          expect(credential).toBeTruthy();
+          expect(output).not.toContain(credential);
+        }
+      },
+      { logger },
+    );
+  });
 });

@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { claim, withAuth } from "./test-support/fixture.ts";
+import { claim, credentialCounts, withAuth } from "./test-support/fixture.ts";
 
 const cookieName = (origin: string) => `aircastle_session_${new URL(origin).port}`;
 
@@ -44,4 +44,30 @@ test("a session cookie from another origin's port or signing secret is not accep
     },
     { browserOrigin: "http://localhost:43121" },
   );
+});
+
+test("altering an actual issued cookie rejects session access without revoking the original", async () => {
+  await withAuth(async ({ open, sql, namespace }) => {
+    const server = await open();
+    const { cookie } = await claim(server);
+    expect((await server.request("/auth/session", undefined, cookie)).status).toBe(200);
+    const tampered = cookie.replace(/=(.)/u, (_match, first: string) =>
+      first === "a" ? "=b" : "=a",
+    );
+    expect(tampered).not.toBe(cookie);
+    const counts = await credentialCounts(sql, namespace);
+    expect(counts).toEqual({ users: 1, sessions: 1 });
+    for (const [path, body] of [
+      ["/auth/session", undefined],
+      ["/auth/activity", {}],
+      ["/auth/entry", { kind: "resolve" }],
+    ] as const) {
+      const response = await server.request(path, body, tampered);
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ kind: "unauthenticated" });
+      expect(response.headers.get("set-cookie")).toBeNull();
+      expect(await credentialCounts(sql, namespace)).toEqual(counts);
+    }
+    expect((await server.request("/auth/session", undefined, cookie)).status).toBe(200);
+  });
 });

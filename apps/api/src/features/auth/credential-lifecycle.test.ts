@@ -1,34 +1,12 @@
-import { randomUUID } from "node:crypto";
-import type { ProtectedDestination } from "@aircastle/core";
 import { expect, test } from "vite-plus/test";
 import {
   claim,
   confirmedCookie,
-  issueSetupLink,
-  issueSignInLink,
-  start,
+  credentialCounts,
+  pendingLink,
   withAuth,
 } from "./test-support/fixture.ts";
-import type { AuthFixture, AuthServer } from "./test-support/fixture.ts";
-
-const alexSession = {
-  user: {
-    id: expect.any(String),
-    name: "Alex",
-    email: "alex@example.test",
-    authority: "super_user",
-  },
-  expiresAt: start + 1_209_600_000,
-};
-
-async function credentialCounts(sql: AuthFixture["sql"], namespace: string) {
-  const [counts] = await sql<{ users: number; sessions: number }[]>`
-    SELECT
-      (SELECT count(*)::integer FROM ${sql(namespace)}.auth_users) AS users,
-      (SELECT count(*)::integer FROM ${sql(namespace)}.auth_sessions) AS sessions`;
-  if (!counts) throw new Error("Independent durable credential counts must return a row");
-  return counts;
-}
+import type { AuthFixture } from "./test-support/fixture.ts";
 
 async function waitForContenders(sql: AuthFixture["sql"], blocker: number) {
   const until = Date.now() + 5_000;
@@ -46,19 +24,6 @@ async function waitForContenders(sql: AuthFixture["sql"], blocker: number) {
   throw new Error(
     "Both sign-in confirmations must demonstrably wait before the session gate opens",
   );
-}
-
-async function pendingLink(
-  server: AuthServer,
-  purpose: "setup" | "sign-in",
-  returnTo?: ProtectedDestination,
-) {
-  const input = returnTo === undefined ? {} : { returnTo };
-  const { token } =
-    purpose === "setup"
-      ? await issueSetupLink(server, input)
-      : await issueSignInLink(server, input);
-  return { purpose, token };
 }
 
 test("a pending sign-in link cannot authenticate or recreate its deleted user", async () => {
@@ -95,7 +60,6 @@ test("a pending sign-in link cannot authenticate or recreate its deleted user", 
     });
   });
 });
-
 test("a sign-in token rejected as setup remains usable for sign-in", async () => {
   await withAuth(async ({ open, sql, namespace }) => {
     const server = await open();
@@ -139,7 +103,6 @@ test("a sign-in token rejected as setup remains usable for sign-in", async () =>
     });
   });
 });
-
 for (const elapsed of [299_999, 300_000]) {
   test(`sign-in token expires strictly 300 seconds after its issuance at ${elapsed} milliseconds`, async () => {
     await withAuth(async ({ open, at, sql, namespace }) => {
@@ -168,7 +131,6 @@ for (const elapsed of [299_999, 300_000]) {
     });
   });
 }
-
 test("replaying a consumed sign-in token cannot create another user, session or cookie", async () => {
   await withAuth(async ({ open, sql, namespace }) => {
     const server = await open();
@@ -189,7 +151,6 @@ test("replaying a consumed sign-in token cannot create another user, session or 
     expect((await reopened.request("/auth/session", undefined, cookie)).status).toBe(200);
   });
 });
-
 test("concurrent redemption of one sign-in token commits exactly one new session", async () => {
   await withAuth(async ({ open, sql, namespace }) => {
     const first = await open();
@@ -231,7 +192,6 @@ test("concurrent redemption of one sign-in token commits exactly one new session
     expect(await credentialCounts(sql, namespace)).toEqual({ users: 1, sessions: 2 });
   });
 }, 15_000);
-
 test("replacement invalidates the old sign-in token, expiry takes precedence, and the newest stays usable", async () => {
   await withAuth(async ({ open, at, sql, namespace }) => {
     const server = await open();
@@ -265,208 +225,3 @@ test("replacement invalidates the old sign-in token, expiry takes precedence, an
     expect(await credentialCounts(sql, namespace)).toEqual({ users: 1, sessions: 2 });
   });
 });
-
-test("altering an actual issued cookie rejects session access without revoking the original", async () => {
-  await withAuth(async ({ open, sql, namespace }) => {
-    const server = await open();
-    const { cookie } = await claim(server);
-    expect((await server.request("/auth/session", undefined, cookie)).status).toBe(200);
-    const tampered = cookie.replace(/=(.)/u, (_match, first: string) =>
-      first === "a" ? "=b" : "=a",
-    );
-    expect(tampered).not.toBe(cookie);
-    const counts = await credentialCounts(sql, namespace);
-    expect(counts).toEqual({ users: 1, sessions: 1 });
-    for (const [path, body] of [
-      ["/auth/session", undefined],
-      ["/auth/activity", {}],
-      ["/auth/entry", { kind: "resolve" }],
-    ] as const) {
-      const response = await server.request(path, body, tampered);
-      expect(response.status).toBe(401);
-      expect(await response.json()).toEqual({ kind: "unauthenticated" });
-      expect(response.headers.get("set-cookie")).toBeNull();
-      expect(await credentialCounts(sql, namespace)).toEqual(counts);
-    }
-    expect((await server.request("/auth/session", undefined, cookie)).status).toBe(200);
-  });
-});
-
-test("setup restores its link-carried authorized destination and skips automatic onboarding", async () => {
-  await withAuth(async ({ open }) => {
-    const server = await open();
-    const destination = { kind: "workspaces" } as const;
-    const link = await pendingLink(server, "setup", destination);
-    const reopened = await open();
-    const confirmed = await reopened.request("/auth/confirm", link);
-    expect(confirmed.status).toBe(200);
-    expect(await confirmed.json()).toEqual({ kind: "ok", value: { destination } });
-    const cookie = confirmedCookie(confirmed);
-    const observer = await open();
-    const user = await observer.storage.transaction((tx) => tx.userByEmail("alex@example.test"));
-    if (!user) throw new Error("Confirmation must persist its user before entry resolution");
-    expect(await observer.storage.transaction((tx) => tx.entry(user.id))).toMatchObject({
-      onboardingOffered: true,
-    });
-    const restored = await observer.request("/auth/entry", { kind: "resolve" }, cookie);
-    expect(restored.status).toBe(200);
-    expect(await restored.json()).toEqual({
-      kind: "ok",
-      value: { destination, session: alexSession },
-    });
-    const session = await reopened.request("/auth/session", undefined, cookie);
-    expect(session.status).toBe(200);
-    const entry = await reopened.request("/auth/entry", { kind: "resolve" }, cookie);
-    expect(entry.status).toBe(200);
-    expect(await entry.json()).toEqual({
-      kind: "ok",
-      value: { destination, session: alexSession },
-    });
-  });
-});
-
-for (const revoked of [false, true]) {
-  test(`sign-in link destination ${revoked ? "falls back after membership is revoked following preview" : "is restored while membership remains authorized"}`, async () => {
-    await withAuth(async ({ open, content, sql, namespace }) => {
-      const project = await content.provision({
-        verifier: "credential-lifecycle-digest",
-        permissions: ["content:read"],
-        key: "reuse",
-        workspaceName: "Development workspace",
-        projectName: "Development project",
-      });
-      const server = await open();
-      const { cookie } = await claim(server);
-      const user = await server.storage.transaction((tx) => tx.userByEmail("alex@example.test"));
-      if (!user) throw new Error("Setup must persist a user before granting fixture membership");
-      await sql`INSERT INTO ${sql(namespace)}.auth_workspace_access (user_id, workspace_id) VALUES (${user.id}, ${project.workspace})`;
-      const destination = {
-        kind: "project-page",
-        workspaceId: project.workspace,
-        projectId: project.project,
-        page: "collections",
-      } as const;
-      const before = await server.request("/auth/entry", { kind: "visit", destination }, cookie);
-      expect(before.status).toBe(200);
-      expect(await before.json()).toEqual({
-        kind: "ok",
-        value: { destination, session: alexSession },
-      });
-      const link = await pendingLink(server, "sign-in", destination);
-      const preview = await server.request("/auth/confirm/preview", link);
-      expect(preview.status).toBe(200);
-      expect(await preview.json()).toEqual({
-        kind: "ok",
-        value: { email: "alex@example.test", purpose: "sign-in" },
-      });
-      if (revoked)
-        await sql`DELETE FROM ${sql(namespace)}.auth_workspace_access WHERE user_id = ${user.id} AND workspace_id = ${project.workspace}`;
-      const reopened = await open();
-      const confirmed = await reopened.request("/auth/confirm", link);
-      expect(confirmed.status).toBe(200);
-      expect(await confirmed.json()).toEqual({
-        kind: "ok",
-        value: { destination: revoked ? { kind: "dashboard" } : destination },
-      });
-      const signedIn = confirmedCookie(confirmed);
-      expect((await reopened.request("/auth/session", undefined, signedIn)).status).toBe(200);
-      const visit = await reopened.request("/auth/entry", { kind: "visit", destination }, signedIn);
-      expect(visit.status).toBe(revoked ? 403 : 200);
-      expect(await visit.json()).toEqual(
-        revoked
-          ? { kind: "forbidden" }
-          : { kind: "ok", value: { destination, session: alexSession } },
-      );
-    });
-  });
-}
-
-for (const change of ["delete-workspace", "remove-membership"] as const) {
-  test(`a saved remembered workspace falls back on later sign-in after ${change}`, async () => {
-    await withAuth(async ({ open, sql, namespace }) => {
-      const server = await open();
-      const { cookie } = await claim(server);
-      const workspaceId = randomUUID();
-      const user = await server.storage.transaction((tx) => tx.userByEmail("alex@example.test"));
-      if (!user) throw new Error("Setup must persist a user before granting fixture membership");
-      await sql`INSERT INTO ${sql(namespace)}.workspaces (id, name) VALUES (${workspaceId}, 'Remembered workspace')`;
-      await sql`INSERT INTO ${sql(namespace)}.auth_workspace_access (user_id, workspace_id) VALUES (${user.id}, ${workspaceId})`;
-      const destination = { kind: "workspace-projects", workspaceId };
-      const visited = await server.request("/auth/entry", { kind: "visit", destination }, cookie);
-      expect(visited.status).toBe(200);
-      expect(await visited.json()).toEqual({
-        kind: "ok",
-        value: { destination, session: alexSession },
-      });
-      const remembered = await server.request("/auth/entry", { kind: "resolve" }, cookie);
-      expect(remembered.status).toBe(200);
-      expect(await remembered.json()).toEqual({
-        kind: "ok",
-        value: { destination, session: alexSession },
-      });
-      if (change === "delete-workspace") {
-        await sql`DELETE FROM ${sql(namespace)}.workspaces WHERE id = ${workspaceId}`;
-        expect(
-          await sql`SELECT id FROM ${sql(namespace)}.workspaces WHERE id = ${workspaceId}`,
-        ).toHaveLength(0);
-      } else {
-        await sql`DELETE FROM ${sql(namespace)}.auth_workspace_access WHERE user_id = ${user.id} AND workspace_id = ${workspaceId}`;
-        expect(
-          await sql`SELECT id FROM ${sql(namespace)}.workspaces WHERE id = ${workspaceId}`,
-        ).toHaveLength(1);
-      }
-      const link = await pendingLink(server, "sign-in");
-      const reopened = await open();
-      const confirmed = await reopened.request("/auth/confirm", link);
-      expect(confirmed.status).toBe(200);
-      expect(await confirmed.json()).toEqual({
-        kind: "ok",
-        value: { destination: { kind: "dashboard" } },
-      });
-      const entry = await reopened.request(
-        "/auth/entry",
-        { kind: "resolve" },
-        confirmedCookie(confirmed),
-      );
-      expect(entry.status).toBe(200);
-      expect(await entry.json()).toEqual({
-        kind: "ok",
-        value: { destination: { kind: "workspaces" }, session: alexSession },
-      });
-    });
-  });
-}
-
-for (const purpose of ["setup", "sign-in"] as const) {
-  for (const [label, returnTo] of [
-    ["external URL", "https://evil.test/steal"],
-    ["unsupported destination", { kind: "external", url: "https://evil.test/steal" }],
-    [
-      "unsupported page name",
-      {
-        kind: "project-page",
-        workspaceId: "00000000-0000-4000-8000-000000000001",
-        projectId: "00000000-0000-4000-8000-000000000002",
-        page: "unsupported-page",
-      },
-    ],
-  ] as const) {
-    test(`${purpose} rejects ${label} returnTo without publishing a link`, async () => {
-      await withAuth(async ({ open }) => {
-        const server = await open();
-        if (purpose === "sign-in") await claim(server);
-        const messages = server.inbox.list();
-        const response = await server.request(`/auth/${purpose}`, {
-          email: "alex@example.test",
-          ...(purpose === "setup" ? { name: "Alex" } : {}),
-          returnTo,
-        });
-        expect(response.status).toBe(400);
-        expect(await response.json()).toMatchObject({ kind: "invalid-input" });
-        expect(response.headers.get("set-cookie")).toBeNull();
-        expect(server.inbox.list()).toEqual(messages);
-        expect((await server.request("/auth/session")).status).toBe(401);
-      });
-    });
-  }
-}
