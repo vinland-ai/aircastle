@@ -1,6 +1,7 @@
 import { type } from "arktype";
 import { authSetupInput, authSignInInput, protectedDestination } from "@aircastle/contracts";
 import type { ProtectedDestination } from "@aircastle/core";
+import { isToken } from "./token.ts";
 
 export type LinkInput = { purpose: "setup" | "sign-in"; token: string };
 export type AccountInput =
@@ -47,7 +48,8 @@ export function parseAccount(
   return { kind: "invalid-input", fields: { name: "Enter your name" } };
 }
 
-export function parseLink(body: unknown): LinkInput {
+/** A link body with a known purpose and a token of the shape `newToken` makes, or null. */
+export function parseLink(body: unknown): LinkInput | null {
   if (
     body &&
     typeof body === "object" &&
@@ -56,10 +58,11 @@ export function parseLink(body: unknown): LinkInput {
     (body.purpose === "setup" || body.purpose === "sign-in") &&
     "token" in body &&
     typeof body.token === "string" &&
+    isToken(body.token) &&
     Object.keys(body).every((key) => key === "purpose" || key === "token")
   )
     return { purpose: body.purpose, token: body.token };
-  return { purpose: "sign-in", token: "" };
+  return null;
 }
 
 export async function jsonBody(request: Request): Promise<unknown> {

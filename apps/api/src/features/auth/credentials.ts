@@ -10,14 +10,12 @@ import type {
 import type { DevelopmentInbox, DevelopmentInboxPublication } from "../development-inbox/index.ts";
 import { storageUnavailable } from "./diagnostics.ts";
 import { linkEmail, linkLifetime } from "./link-email.ts";
+import { eligibility, linkVerdict, lockSetupThenEmail, nextStep } from "./links.ts";
+import type { LinkVerdict } from "./links.ts";
 import type { AuthEvent } from "./diagnostics.ts";
 import type { AccountInput, LinkInput } from "./request.ts";
 import { startSession } from "./sessions.ts";
 import { digest, newToken } from "./token.ts";
-
-type LinkFailure =
-  | { kind: "invalid-link" | "superseded-link"; next: "setup" | "sign-in" }
-  | { kind: "setup-complete" };
 
 export function createCredentials(options: {
   storage: AuthStore;
@@ -72,32 +70,20 @@ export function createCredentials(options: {
     timer.unref();
   }
 
-  async function inspect(tx: AuthTransaction, input: LinkInput) {
-    const preliminary = await tx.link(digest(input.token));
-    const setup = await tx.lockSetupClaim();
-    if (preliminary) await tx.lockEmail(preliminary.email);
-    const record = preliminary ? await tx.link(digest(input.token)) : null;
-    const next = setup === "open" ? "setup" : "sign-in";
-    let failure: LinkFailure | undefined;
+  async function inspect(tx: AuthTransaction, input: LinkInput | null): Promise<LinkVerdict> {
+    const preliminary = input ? await tx.link(digest(input.token)) : null;
+    const setup = await lockSetupThenEmail(tx, preliminary?.email);
+    const record = input && preliminary ? await tx.link(digest(input.token)) : null;
+    let verdict = linkVerdict(input, record, setup, options.clock());
     if (
-      !/^[A-Za-z0-9_-]{43}$/.test(input.token) ||
-      !record ||
-      record.identity.purpose !== input.purpose ||
-      record.expiresAt <= options.clock() ||
-      record.status === "consumed"
+      verdict.kind === "valid" &&
+      verdict.record.identity.purpose === "sign-in" &&
+      !(await tx.userById(verdict.record.identity.userId))
     )
-      failure = { kind: "invalid-link", next };
-    else if (record.status === "superseded") failure = { kind: "superseded-link", next };
-    else if (record.identity.purpose === "setup" && setup === "complete")
-      failure = { kind: "setup-complete" };
-    else if (record.identity.purpose === "sign-in" && !(await tx.userById(record.identity.userId)))
-      failure = { kind: "invalid-link", next };
-    if (failure) {
-      options.emit({ kind: "sign-in-failed", reason: failure.kind });
-      return { kind: "failure" as const, failure };
-    }
-    if (!record) throw new AuthStorageError("unavailable");
-    return { kind: "valid" as const, record };
+      verdict = { kind: "failure", failure: { kind: "invalid-link", next: nextStep(setup) } };
+    if (verdict.kind === "failure")
+      options.emit({ kind: "sign-in-failed", reason: verdict.failure.kind });
+    return verdict;
   }
 
   return {
@@ -106,23 +92,14 @@ export function createCredentials(options: {
       let messageId: string | undefined;
       try {
         const outcome = await options.storage.transaction(async (tx) => {
-          const setup = await tx.lockSetupClaim();
-          await tx.lockEmail(input.email);
-          let identity: AuthLinkRecord["identity"];
-          if (input.purpose === "setup") {
-            if (setup === "complete") return { kind: "setup-complete" as const };
-            if (options.initialEmail && input.email !== options.initialEmail)
-              return { kind: "email-not-allowed" as const };
-            identity = { purpose: "setup", name: input.name };
-          } else {
-            if (setup === "open") return { kind: "setup-required" as const };
-            const user = await tx.userByEmail(input.email);
-            if (!user) {
-              options.emit({ kind: "sign-in-failed", reason: "unknown-identity" });
-              return { kind: "issued" as const };
-            }
-            identity = { purpose: "sign-in", userId: user.id };
+          const setup = await lockSetupThenEmail(tx, input.email);
+          const eligible = await eligibility(input, setup, options.initialEmail, tx.userByEmail);
+          if (eligible.kind === "unknown-identity") {
+            options.emit({ kind: "sign-in-failed", reason: "unknown-identity" });
+            return { kind: "issued" as const };
           }
+          if (eligible.kind !== "eligible") return { kind: eligible.kind };
+          const { identity } = eligible;
           const token = newToken();
           const at = options.clock();
           const record: AuthLinkRecord = {
@@ -166,7 +143,7 @@ export function createCredentials(options: {
         return { kind: "temporary-failure" as const };
       }
     },
-    async preview(input: LinkInput) {
+    async preview(input: LinkInput | null) {
       return options.storage.transaction(async (tx) => {
         const result = await inspect(tx, input);
         return result.kind === "valid"
@@ -179,7 +156,7 @@ export function createCredentials(options: {
       });
     },
     /** Redeems a link, creating the setup user and a session in one transaction. */
-    async confirm(input: LinkInput) {
+    async confirm(input: LinkInput | null) {
       return options.storage.transaction(async (tx) => {
         const result = await inspect(tx, input);
         if (result.kind === "failure") return result;
