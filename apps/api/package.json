@@ -4,6 +4,9 @@
   "private": true,
   "license": "MIT",
   "type": "module",
+  "exports": {
+    "./testing/auth-process": "./src/features/auth/test-support/auth-process.ts"
+  },
   "scripts": {
     "dev": "bun --conditions=development --env-file=../../.env --hot src/index.ts",
     "build": "bun build src/index.ts --conditions=development --target bun --outdir dist",

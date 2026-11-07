@@ -61,6 +61,7 @@
   },
   "devDependencies": {
     "@aircastle/adapter-postgres": "workspace:*",
+    "@aircastle/api": "workspace:*",
     "@aircastle/client": "workspace:*",
     "@aircastle/contracts": "workspace:*",
     "@aircastle/core": "workspace:*",

@@ -1,11 +1,11 @@
 import process from "node:process";
-import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createServer, request, type IncomingMessage, type ServerResponse } from "node:http";
 import { open } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { preview, type PreviewServer } from "vite";
+import { startAuthProcess, type AuthProcess } from "@aircastle/api/testing/auth-process";
 
 const repository = fileURLToPath(new URL("../../", import.meta.url));
 const webRoot = path.join(repository, "apps/web");
@@ -14,37 +14,25 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535)
   throw new Error("AUTH_INSTANCES_PORT must be an integer from 1024 to 65535");
 
 type Instance = {
-  child: ChildProcess;
+  child: AuthProcess;
   server: PreviewServer;
   log: Awaited<ReturnType<typeof open>>;
 };
 const instances = new Map<string, Instance>();
 
-async function stopChild(child: ChildProcess) {
-  if (child.exitCode !== null || child.signalCode !== null) return;
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      reject(new Error("Auth instance did not stop"));
-    }, 10_000);
-    child.once("exit", () => {
-      clearTimeout(timer);
-      resolve();
-    });
-    child.kill("SIGTERM");
+function closePreview(server: PreviewServer) {
+  return new Promise<void>((resolve, reject) => {
+    server.httpServer.close((error) => (error ? reject(error) : resolve()));
+    if ("closeAllConnections" in server.httpServer) server.httpServer.closeAllConnections();
   });
 }
 
 async function stopInstance(instance: Instance) {
   try {
-    await stopChild(instance.child);
+    await instance.child.close();
   } finally {
     await instance.log.close();
-    await new Promise<void>((resolve, reject) => {
-      instance.server.httpServer.close((error) => (error ? reject(error) : resolve()));
-      if ("closeAllConnections" in instance.server.httpServer)
-        instance.server.httpServer.closeAllConnections();
-    });
+    await closePreview(instance.server);
   }
 }
 
@@ -92,89 +80,34 @@ async function startInstance(input: {
   if (!address || typeof address === "string") throw new Error("Auth instance has no TCP port");
   const origin = `http://127.0.0.1:${address.port}`;
   const log = await open(input.log, "w");
-  const child = spawn(
-    "bun",
-    [
-      "--conditions=development",
-      "--tsconfig-override=tests/fixtures/tsconfig.runtime.json",
-      "apps/api/src/features/auth/test-support/server.ts",
-    ],
-    {
-      cwd: repository,
-      env: {
-        ...process.env,
-        AIRCASTLE_ENV: "development",
-        ...input.environment,
-        AIRCASTLE_DATABASE_NAMESPACE: input.namespace,
-        AIRCASTLE_URL: origin,
-        AUTH_TEST_NOW: String(Date.now()),
-      },
-      stdio: ["ignore", log.fd, log.fd, "ipc"],
-    },
-  );
-  const instance = { child, server, log };
+  let child: AuthProcess;
   try {
-    apiOrigin = await new Promise<string>((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error("Auth instance readiness timed out; see api.log")),
-        20_000,
+    const url = process.env.AIRCASTLE_DATABASE_URL;
+    if (!url)
+      throw new Error(
+        "Auth instances need AIRCASTLE_DATABASE_URL; run them through vp run db:test",
       );
-      child.on("message", (message: unknown) => {
-        if (
-          message &&
-          typeof message === "object" &&
-          "kind" in message &&
-          message.kind === "ready" &&
-          "origin" in message &&
-          typeof message.origin === "string" &&
-          /^http:\/\/127\.0\.0\.1:\d+$/.test(message.origin)
-        ) {
-          clearTimeout(timer);
-          resolve(message.origin);
-        }
-      });
-      child.once("error", (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-      child.once("exit", (code) => {
-        clearTimeout(timer);
-        reject(new Error(`Auth instance exited ${code}; see api.log`));
-      });
+    child = await startAuthProcess({
+      database: { url, namespace: input.namespace },
+      browserOrigin: origin,
+      now: Date.now(),
+      environment: input.environment,
+      output: log.fd,
+      deadlines: { ready: 20_000, reply: 5_000, close: 10_000 },
     });
   } catch (error) {
-    await stopInstance(instance);
+    try {
+      await log.close();
+    } finally {
+      await closePreview(server);
+    }
     throw error;
   }
+  apiOrigin = child.origin;
+  const instance = { child, server, log };
   const id = randomUUID();
   instances.set(id, instance);
   return { id, origin, apiOrigin };
-}
-
-function advance(child: ChildProcess, milliseconds: number) {
-  return new Promise<void>((resolve, reject) => {
-    const id = randomUUID();
-    const timer = setTimeout(() => {
-      child.off("message", receive);
-      reject(new Error("Clock advance timed out"));
-    }, 5_000);
-    const receive = (message: unknown) => {
-      if (
-        message &&
-        typeof message === "object" &&
-        "kind" in message &&
-        "id" in message &&
-        message.kind === "advanced" &&
-        message.id === id
-      ) {
-        clearTimeout(timer);
-        child.off("message", receive);
-        resolve();
-      }
-    };
-    child.on("message", receive);
-    child.send({ kind: "advance", milliseconds, id });
-  });
 }
 
 async function body(incoming: IncomingMessage): Promise<unknown> {
@@ -230,7 +163,7 @@ const controller = createServer(async (incoming, outgoing) => {
           : undefined;
       if (typeof milliseconds !== "number")
         return reply(outgoing, 400, { error: "milliseconds required" });
-      await advance(instance.child, milliseconds);
+      await instance.child.advance(milliseconds);
       return reply(outgoing, 200, {});
     }
     if (incoming.method === "DELETE") {
