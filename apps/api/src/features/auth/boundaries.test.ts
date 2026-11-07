@@ -4,7 +4,7 @@ import type { AuthLimits } from "@aircastle/core";
 import { createApp } from "../../app.ts";
 import { createLocalAuth } from "./index.ts";
 import { dispatched } from "./dispatch.ts";
-import { browserOrigin, claim, issue, start, withAuth } from "./test-support/fixture.ts";
+import { browserOrigin, claim, issueSetupLink, start, withAuth } from "./test-support/fixture.ts";
 
 const defaults: AuthLimits = {
   email: { fiveMinutes: 5, oneHour: 20 },
@@ -202,7 +202,7 @@ describe("local auth HTTP boundaries", () => {
     await withAuth(
       async ({ open }) => {
         const server = await open();
-        const original = await issue(server);
+        const original = await issueSetupLink(server);
         const rejected = await server.request("/auth/setup", setup);
         expect(rejected.status).toBe(429);
         expect(await rejected.json()).toEqual({ kind: "throttled", retryAt: start + 300_000 });

@@ -8,7 +8,7 @@ import {
   postgresAuthStore,
 } from "@aircastle/adapter-postgres";
 import { AuthStorageError, createAircastle } from "@aircastle/core";
-import type { AuthLimits, AuthStore } from "@aircastle/core";
+import type { AuthLimits, AuthStore, ProtectedDestination } from "@aircastle/core";
 import { expect } from "vite-plus/test";
 import { cmsErrorReporter, createApp } from "../../../app.ts";
 import { createDevelopmentInbox } from "../../development-inbox/index.ts";
@@ -156,7 +156,7 @@ export async function withAuth(
           { peerAddress },
         );
       };
-      return { request, inbox, storage, app, auth };
+      return { request, inbox, storage, app, auth, origin };
     };
     await run({
       sql,
@@ -211,6 +211,8 @@ export interface AuthFixture {
     storage: AuthStore;
     app: ReturnType<typeof createApp>;
     auth: LocalAuthRuntime;
+    /** The browser origin this runtime serves. */
+    origin: string;
   }>;
   events: AuthEvent[];
   logs: string[];
@@ -223,26 +225,80 @@ export interface AuthFixture {
 
 export type AuthServer = Awaited<ReturnType<AuthFixture["open"]>>;
 
-export async function issue(server: AuthServer, email = "alex@example.test", name = "Alex") {
-  const response = await server.request("/auth/setup", { name, email });
-  expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ kind: "ok", value: { confirmation: "setup-inbox" } });
-  const message = server.inbox
-    .list()
-    .find((entry) => entry.mail.to.includes(email.trim().toLowerCase()));
-  expect(message).toBeDefined();
-  if (!message) throw new Error("Successful issuance must publish a readable email");
-  const link = message.mail.text.match(/https?:\/\/[^\s<>]+/u)?.[0];
+/** The link a captured email carries, and the token in it. */
+export function readCapturedLink(message: EmailMessage) {
+  const link = message.text.match(/https?:\/\/[^\s<>]+/u)?.[0];
   expect(link).toBeDefined();
   if (!link) throw new Error("Captured email must contain the actionable link");
   const token = new URL(link).searchParams.get("token");
   expect(token).toBeTruthy();
   if (!token) throw new Error("Captured link must contain a token");
-  return { purpose: "setup" as const, token, message: message.mail, link };
+  return { link, token };
+}
+
+/**
+ * Requests a link that must be issued, and reads it from the one message the request published.
+ * Issuance sets no cookie, and the message goes to the normalized email with the purpose's
+ * subject and a link to the purpose's page on the browser origin.
+ */
+async function issueLink(
+  server: AuthServer,
+  purpose: "setup" | "sign-in",
+  body: { email: string; name?: string; returnTo?: ProtectedDestination },
+) {
+  const before = new Set(server.inbox.list().map(({ mail }) => mail.messageId));
+  const response = await server.request(`/auth/${purpose}`, body);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    kind: "ok",
+    value: { confirmation: purpose === "setup" ? "setup-inbox" : "sign-in-inbox" },
+  });
+  expect(response.headers.get("set-cookie")).toBeNull();
+  const published = server.inbox.list().filter(({ mail }) => !before.has(mail.messageId));
+  expect(published).toHaveLength(1);
+  const message = published[0]?.mail;
+  if (!message) throw new Error("Successful issuance must publish a readable email");
+  expect(message.to).toEqual([body.email.trim().toLowerCase()]);
+  expect(message.subject).toBe(
+    purpose === "setup" ? "Create your Aircastle account" : "Sign in to Aircastle",
+  );
+  const { link, token } = readCapturedLink(message);
+  const url = new URL(link);
+  expect(url.origin).toBe(new URL(server.origin).origin);
+  expect(url.pathname).toBe(`/${purpose}`);
+  return { purpose, token, link, message, response };
+}
+
+export function issueSetupLink(
+  server: AuthServer,
+  input: { name?: string; email?: string; returnTo?: ProtectedDestination } = {},
+) {
+  const { name = "Alex", email = "alex@example.test", returnTo } = input;
+  return issueLink(server, "setup", {
+    name,
+    email,
+    ...(returnTo === undefined ? {} : { returnTo }),
+  });
+}
+
+export function issueSignInLink(
+  server: AuthServer,
+  input: { email?: string; returnTo?: ProtectedDestination } = {},
+) {
+  const { email = "alex@example.test", returnTo } = input;
+  return issueLink(server, "sign-in", { email, ...(returnTo === undefined ? {} : { returnTo }) });
+}
+
+/** The session cookie a successful confirmation sets, as a `name=value` pair. */
+export function confirmedCookie(response: Response) {
+  const cookie = response.headers.get("set-cookie")?.split(";")[0];
+  expect(cookie).toBeTruthy();
+  if (!cookie) throw new Error("Successful confirmation must establish a browser session");
+  return cookie;
 }
 
 export async function claim(server: AuthServer) {
-  const link = await issue(server);
+  const link = await issueSetupLink(server);
   const response = await server.request("/auth/confirm", {
     purpose: link.purpose,
     token: link.token,
@@ -255,22 +311,12 @@ export async function claim(server: AuthServer) {
   const setCookie = response.headers.get("set-cookie");
   expect(setCookie).toBeTruthy();
   if (!setCookie) throw new Error("Successful confirmation must set a browser cookie");
-  return { cookie: setCookie.split(";")[0] ?? "", setCookie, link };
+  return { cookie: confirmedCookie(response), setCookie, link };
 }
 
 export async function signIn(server: AuthServer, email = "alex@example.test") {
-  const issued = await server.request("/auth/sign-in", { email });
-  expect(issued.status).toBe(200);
-  const mail = server.inbox.list().find((entry) => entry.mail.to.includes(email))?.mail;
-  expect(mail?.subject).toBe("Sign in to Aircastle");
-  const link = mail?.text.match(/https?:\/\/[^\s<>]+/u)?.[0];
-  if (!link) throw new Error("Sign-in must publish an actionable link");
-  const token = new URL(link).searchParams.get("token");
-  if (!token) throw new Error("Sign-in link must contain a token");
+  const { token } = await issueSignInLink(server, { email });
   const response = await server.request("/auth/confirm", { purpose: "sign-in", token });
   expect(response.status).toBe(200);
-  const cookie = response.headers.get("set-cookie")?.split(";")[0];
-  expect(cookie).toBeTruthy();
-  if (!cookie) throw new Error("Sign-in must issue a cookie");
-  return { cookie, token };
+  return { cookie: confirmedCookie(response), token };
 }

@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { ProtectedDestination } from "@aircastle/core";
 import { expect, test } from "vite-plus/test";
-import { browserOrigin, claim, start, withAuth } from "./test-support/fixture.ts";
+import {
+  claim,
+  confirmedCookie,
+  issueSetupLink,
+  issueSignInLink,
+  start,
+  withAuth,
+} from "./test-support/fixture.ts";
 import type { AuthFixture, AuthServer } from "./test-support/fixture.ts";
 
 const alexSession = {
@@ -46,40 +53,12 @@ async function pendingLink(
   purpose: "setup" | "sign-in",
   returnTo?: ProtectedDestination,
 ) {
-  const before = new Set(server.inbox.list().map(({ mail }) => mail.messageId));
-  const issued = await server.request(`/auth/${purpose}`, {
-    email: "alex@example.test",
-    ...(purpose === "setup" ? { name: "Alex" } : {}),
-    ...(returnTo === undefined ? {} : { returnTo }),
-  });
-  expect(issued.status).toBe(200);
-  expect(await issued.json()).toEqual({
-    kind: "ok",
-    value: { confirmation: purpose === "setup" ? "setup-inbox" : "sign-in-inbox" },
-  });
-  expect(issued.headers.get("set-cookie")).toBeNull();
-  const messages = server.inbox.list().filter(({ mail }) => !before.has(mail.messageId));
-  expect(messages).toHaveLength(1);
-  const mail = messages[0]?.mail;
-  expect(mail?.to).toEqual(["alex@example.test"]);
-  expect(mail?.subject).toBe(
-    purpose === "setup" ? "Create your Aircastle account" : "Sign in to Aircastle",
-  );
-  const link = mail?.text.match(/https?:\/\/[^\s<>]+/u)?.[0];
-  if (!link) throw new Error("Successful issuance must capture an actionable link");
-  const url = new URL(link);
-  expect(url.origin).toBe(browserOrigin);
-  expect(url.pathname).toBe(`/${purpose}`);
-  const token = url.searchParams.get("token");
-  if (!token) throw new Error("Captured link must contain its confirmation token");
+  const input = returnTo === undefined ? {} : { returnTo };
+  const { token } =
+    purpose === "setup"
+      ? await issueSetupLink(server, input)
+      : await issueSignInLink(server, input);
   return { purpose, token };
-}
-
-function confirmationCookie(response: Response) {
-  const cookie = response.headers.get("set-cookie")?.split(";")[0];
-  expect(cookie).toBeTruthy();
-  if (!cookie) throw new Error("Successful confirmation must establish a browser session");
-  return cookie;
 }
 
 test("a pending sign-in link cannot authenticate or recreate its deleted user", async () => {
@@ -145,7 +124,7 @@ test("a sign-in token rejected as setup remains usable for sign-in", async () =>
       kind: "ok",
       value: { destination: { kind: "dashboard" } },
     });
-    const session = await server.request("/auth/session", undefined, confirmationCookie(confirmed));
+    const session = await server.request("/auth/session", undefined, confirmedCookie(confirmed));
     expect(session.status).toBe(200);
     expect(await session.json()).toMatchObject({
       kind: "ok",
@@ -178,7 +157,7 @@ for (const elapsed of [299_999, 300_000]) {
           kind: "ok",
           value: { destination: { kind: "dashboard" } },
         });
-        const cookie = confirmationCookie(confirmed);
+        const cookie = confirmedCookie(confirmed);
         expect((await server.request("/auth/session", undefined, cookie)).status).toBe(200);
         expect(await credentialCounts(sql, namespace)).toEqual({ users: 1, sessions: 2 });
       } else {
@@ -197,7 +176,7 @@ test("replaying a consumed sign-in token cannot create another user, session or 
     const link = await pendingLink(server, "sign-in");
     const confirmed = await server.request("/auth/confirm", link);
     expect(confirmed.status).toBe(200);
-    const cookie = confirmationCookie(confirmed);
+    const cookie = confirmedCookie(confirmed);
     expect((await server.request("/auth/session", undefined, cookie)).status).toBe(200);
     const counts = await credentialCounts(sql, namespace);
     expect(counts).toEqual({ users: 1, sessions: 2 });
@@ -242,7 +221,7 @@ test("concurrent redemption of one sign-in token commits exactly one new session
           kind: "ok",
           value: { destination: { kind: "dashboard" } },
         });
-        const cookie = confirmationCookie(response);
+        const cookie = confirmedCookie(response);
         expect((await first.request("/auth/session", undefined, cookie)).status).toBe(200);
       } else {
         expect(await response.json()).toEqual({ kind: "invalid-link", next: "sign-in" });
@@ -281,7 +260,7 @@ test("replacement invalidates the old sign-in token, expiry takes precedence, an
       kind: "ok",
       value: { destination: { kind: "dashboard" } },
     });
-    const cookie = confirmationCookie(confirmed);
+    const cookie = confirmedCookie(confirmed);
     expect((await server.request("/auth/session", undefined, cookie)).status).toBe(200);
     expect(await credentialCounts(sql, namespace)).toEqual({ users: 1, sessions: 2 });
   });
@@ -322,7 +301,7 @@ test("setup restores its link-carried authorized destination and skips automatic
     const confirmed = await reopened.request("/auth/confirm", link);
     expect(confirmed.status).toBe(200);
     expect(await confirmed.json()).toEqual({ kind: "ok", value: { destination } });
-    const cookie = confirmationCookie(confirmed);
+    const cookie = confirmedCookie(confirmed);
     const observer = await open();
     const user = await observer.storage.transaction((tx) => tx.userByEmail("alex@example.test"));
     if (!user) throw new Error("Confirmation must persist its user before entry resolution");
@@ -389,7 +368,7 @@ for (const revoked of [false, true]) {
         kind: "ok",
         value: { destination: revoked ? { kind: "dashboard" } : destination },
       });
-      const signedIn = confirmationCookie(confirmed);
+      const signedIn = confirmedCookie(confirmed);
       expect((await reopened.request("/auth/session", undefined, signedIn)).status).toBe(200);
       const visit = await reopened.request("/auth/entry", { kind: "visit", destination }, signedIn);
       expect(visit.status).toBe(revoked ? 403 : 200);
@@ -447,7 +426,7 @@ for (const change of ["delete-workspace", "remove-membership"] as const) {
       const entry = await reopened.request(
         "/auth/entry",
         { kind: "resolve" },
-        confirmationCookie(confirmed),
+        confirmedCookie(confirmed),
       );
       expect(entry.status).toBe(200);
       expect(await entry.json()).toEqual({

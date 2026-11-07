@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { claim, issue, withAuth } from "./test-support/fixture.ts";
+import { claim, issueSetupLink, withAuth } from "./test-support/fixture.ts";
 
 for (const token of ["", "garbage", "x".repeat(43)]) {
   test(`missing, malformed or unknown token ${JSON.stringify(token)} returns invalid without completing setup`, async () => {
@@ -21,7 +21,7 @@ for (const elapsed of [299_999, 300_000, 300_001]) {
   test(`setup token strict 300-second lifetime at ${elapsed} milliseconds`, async () => {
     await withAuth(async ({ open, at }) => {
       const server = await open();
-      const link = await issue(server);
+      const link = await issueSetupLink(server);
       at(elapsed);
       const response = await server.request("/auth/confirm", {
         purpose: "setup",
@@ -69,7 +69,7 @@ test("consumed token replay from a signed-out browser cannot create another sess
 test("unused losing setup token reports completed setup and never creates its user", async () => {
   await withAuth(async ({ open }) => {
     const server = await open();
-    const losing = await issue(server, "loser@example.test", "Loser");
+    const losing = await issueSetupLink(server, { email: "loser@example.test", name: "Loser" });
     await claim(server);
     const response = await server.request("/auth/confirm", {
       purpose: "setup",
@@ -87,7 +87,7 @@ test("unused losing setup token reports completed setup and never creates its us
 test("setup token cannot be redeemed with sign-in purpose", async () => {
   await withAuth(async ({ open }) => {
     const server = await open();
-    const link = await issue(server);
+    const link = await issueSetupLink(server);
     const wrong = await server.request("/auth/confirm", { purpose: "sign-in", token: link.token });
     expect(wrong.status).toBe(400);
     expect(await wrong.json()).toEqual({ kind: "invalid-link", next: "setup" });
@@ -101,7 +101,7 @@ test("parallel confirmations of one token issue exactly one browser cookie", asy
   await withAuth(async ({ open }) => {
     const first = await open();
     const second = await open();
-    const link = await issue(first);
+    const link = await issueSetupLink(first);
     const responses = await Promise.all(
       [first, second].map((server) =>
         server.request("/auth/confirm", { purpose: "setup", token: link.token }),
@@ -116,8 +116,8 @@ test("competing identities across runtimes leave one user and one losing claim",
   await withAuth(async ({ open }) => {
     const first = await open();
     const second = await open();
-    const a = await issue(first);
-    const b = await issue(second, "other@example.test", "Other");
+    const a = await issueSetupLink(first);
+    const b = await issueSetupLink(second, { email: "other@example.test", name: "Other" });
     const responses = await Promise.all([
       first.request("/auth/confirm", { purpose: "setup", token: a.token }),
       second.request("/auth/confirm", { purpose: "setup", token: b.token }),

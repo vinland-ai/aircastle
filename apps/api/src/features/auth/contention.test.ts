@@ -2,7 +2,13 @@ import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import type { AuthStore } from "@aircastle/core";
 import { expect, test } from "vite-plus/test";
-import { claim, issue, withAuth } from "./test-support/fixture.ts";
+import {
+  claim,
+  confirmedCookie,
+  issueSetupLink,
+  issueSignInLink,
+  withAuth,
+} from "./test-support/fixture.ts";
 import type { AuthFixture, AuthServer } from "./test-support/fixture.ts";
 import { deadline, waitForBlock } from "./test-support/postgres-wire.ts";
 
@@ -79,23 +85,8 @@ async function durable(fixture: AuthFixture) {
 }
 
 async function pendingSignIn(server: AuthServer) {
-  const previous = new Set(server.inbox.list().map(({ mail }) => mail.messageId));
-  const response = await server.request("/auth/sign-in", { email: "alex@example.test" });
-  expect(response.status).toBe(200);
-  const mail = server.inbox.list().find(({ mail }) => !previous.has(mail.messageId))?.mail;
-  expect(mail?.subject).toBe("Sign in to Aircastle");
-  const link = mail?.text.match(/https?:\/\/[^\s<>]+/u)?.[0];
-  const token = link && new URL(link).searchParams.get("token");
-  expect(token).toBeTruthy();
-  if (!token) throw new Error("Admitted sign-in must publish its actionable token");
+  const { token } = await issueSignInLink(server);
   return { purpose: "sign-in" as const, token };
-}
-
-function cookie(response: Response) {
-  const value = response.headers.get("set-cookie")?.split(";")[0];
-  expect(value).toBeTruthy();
-  if (!value) throw new Error("The sole successful confirmation must issue its browser cookie");
-  return value;
 }
 
 test("contention observation control proves a held transaction, backend wait and independent committed reads", async () => {
@@ -143,10 +134,12 @@ test.each(["same-setup-token", "different-setup-identities", "same-sign-in-token
         const second = await fixture.open();
         if (scenario === "same-sign-in-token") await claim(first);
         const a =
-          scenario === "same-sign-in-token" ? await pendingSignIn(first) : await issue(first);
+          scenario === "same-sign-in-token"
+            ? await pendingSignIn(first)
+            : await issueSetupLink(first);
         const b =
           scenario === "different-setup-identities"
-            ? await issue(second, "loser@example.test", "Loser")
+            ? await issueSetupLink(second, { email: "loser@example.test", name: "Loser" })
             : a;
         const before = await durable(fixture);
         gate.arm("session");
@@ -192,7 +185,9 @@ test.each(["same-setup-token", "different-setup-identities", "same-sign-in-token
               (session) => !before.sessions.some(({ id }) => id === session.id),
             ),
           ).toHaveLength(1);
-          expect((await second.request("/auth/session", undefined, cookie(won))).status).toBe(200);
+          expect(
+            (await second.request("/auth/session", undefined, confirmedCookie(won))).status,
+          ).toBe(200);
           const replay = await second.request("/auth/confirm", {
             purpose: b.purpose,
             token: b.token,
@@ -263,7 +258,7 @@ test.each(["replacement-first", "redemption-first"] as const)(
             expect(redeemed.status).toBe(200);
             expect(after.sessions).toHaveLength(before.sessions.length + 1);
             expect(
-              (await second.request("/auth/session", undefined, cookie(redeemed))).status,
+              (await second.request("/auth/session", undefined, confirmedCookie(redeemed))).status,
             ).toBe(200);
             expect(await durable(fixture)).toEqual(after);
           }

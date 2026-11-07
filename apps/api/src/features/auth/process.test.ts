@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { withAuth } from "./test-support/fixture.ts";
+import { readCapturedLink, withAuth } from "./test-support/fixture.ts";
 import { authProcess } from "./test-support/process.ts";
 
 async function setup(process: Awaited<ReturnType<typeof authProcess>>, email: string) {
@@ -7,9 +7,8 @@ async function setup(process: Awaited<ReturnType<typeof authProcess>>, email: st
   expect(response.status).toBe(200);
   const entry = (await process.inbox()).find((candidate) => candidate.mail.to.includes(email));
   expect(entry).toBeDefined();
-  const link = entry?.mail.text.match(/https?:\/\/[^\s<>]+/u)?.[0];
-  if (!link) throw new Error("Real child inbox must publish the setup link");
-  return { purpose: "setup", token: new URL(link).searchParams.get("token") };
+  if (!entry) throw new Error("Real child inbox must publish the setup link");
+  return { purpose: "setup", token: readCapturedLink(entry.mail).token };
 }
 
 for (const sameIdentity of [false, true]) {

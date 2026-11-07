@@ -1,10 +1,10 @@
 import { expect, test } from "vite-plus/test";
-import { claim, issue, withAuth } from "./test-support/fixture.ts";
+import { claim, issueSetupLink, withAuth } from "./test-support/fixture.ts";
 
 test("capture preparation failure preserves the previous link and publishes no replacement", async () => {
   await withAuth(async ({ open, captureFailure }) => {
     const server = await open();
-    const old = await issue(server);
+    const old = await issueSetupLink(server);
     const before = server.inbox.list();
     captureFailure(true);
     const failed = await server.request("/auth/setup", {
@@ -25,7 +25,7 @@ for (const fault of ["replacement", "commit"] as const) {
   test(`${fault} rollback preserves the previous active link and aborts capture`, async () => {
     await withAuth(async ({ open, storageFailure }) => {
       const server = await open();
-      const old = await issue(server);
+      const old = await issueSetupLink(server);
       const before = server.inbox.list();
       storageFailure(fault);
       const response = await server.request("/auth/setup", {
@@ -46,7 +46,7 @@ for (const fault of ["replacement", "commit"] as const) {
 test("session-write failure rolls back the setup user, marker and token consumption together", async () => {
   await withAuth(async ({ open, storageFailure }) => {
     const server = await open();
-    const link = await issue(server);
+    const link = await issueSetupLink(server);
     storageFailure("session");
     const response = await server.request("/auth/confirm", { purpose: "setup", token: link.token });
     expect(response.status).toBe(503);
@@ -67,7 +67,7 @@ test("session-write failure rolls back the setup user, marker and token consumpt
 test("unknown commit acknowledgment resolves the durable issuance before publishing", async () => {
   await withAuth(async ({ open, storageFailure }) => {
     const server = await open();
-    const old = await issue(server);
+    const old = await issueSetupLink(server);
     storageFailure("ack");
     const response = await server.request("/auth/setup", {
       name: "Replacement",
@@ -94,7 +94,7 @@ test("unknown commit acknowledgment resolves the durable issuance before publish
 test("discarding a successful response retains the inbox replacement and its durable marker", async () => {
   await withAuth(async ({ open }) => {
     const server = await open();
-    const old = await issue(server);
+    const old = await issueSetupLink(server);
     await server.request("/auth/setup", { name: "Replacement", email: "alex@example.test" });
     const latest = server.inbox.list()[0]?.mail;
     expect(latest?.messageId).not.toBe(old.message.messageId);

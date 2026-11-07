@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import postgres from "postgres";
-import { issue, withAuth } from "./test-support/fixture.ts";
+import { issueSetupLink, withAuth } from "./test-support/fixture.ts";
 import { deadline, postgresWire, waitForBlock } from "./test-support/postgres-wire.ts";
 
 test("wire control notifies a waiter registered before the fault is armed", async () => {
@@ -116,7 +116,7 @@ for (const mode of ["before-commit", "after-commit"] as const) {
       let resolving: Promise<"committed" | "not-committed"> | undefined;
       try {
         const server = await open(undefined, wire.url);
-        const old = await issue(server);
+        const old = await issueSetupLink(server);
         nextIssuanceCommit(() => wire.arm(mode));
         requesting = server.request("/auth/setup", {
           name: "Replacement",
@@ -141,7 +141,7 @@ for (const mode of ["before-commit", "after-commit"] as const) {
         expect(response.status).toBe(mode === "after-commit" ? 200 : 503);
         expect(server.inbox.list()).toHaveLength(mode === "after-commit" ? 2 : 1);
         if (mode === "after-commit") {
-          await issue(server);
+          await issueSetupLink(server);
           expect(
             await server.storage.resolveIssuance({
               messageId: message.messageId,
@@ -171,7 +171,7 @@ test("token expiry is rechecked after a demonstrable same-email database lock wa
     let confirming: Promise<Response> | undefined;
     try {
       const server = await open(undefined, wire.url);
-      const old = await issue(server);
+      const old = await issueSetupLink(server);
       nextIssuanceCommit(() => wire.arm("after-commit"));
       replacement = server.request("/auth/setup", {
         name: "Replacement",

@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { browserOrigin, claim, issue, withAuth } from "./test-support/fixture.ts";
+import { browserOrigin, claim, issueSetupLink, withAuth } from "./test-support/fixture.ts";
 import type { AuthServer } from "./test-support/fixture.ts";
 
 function expectPrivate(response: Response, label: string) {
@@ -33,7 +33,7 @@ function rawPost(
 test("confirm, session, activity, entry and sign-out responses are neither cached nor referred", async () => {
   await withAuth(async ({ open }) => {
     const server = await open();
-    const link = await issue(server);
+    const link = await issueSetupLink(server);
     const confirmed = await server.request("/auth/confirm", {
       purpose: link.purpose,
       token: link.token,

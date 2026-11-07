@@ -1,10 +1,10 @@
 import { expect, test } from "vite-plus/test";
-import { issue, withAuth } from "./test-support/fixture.ts";
+import { issueSetupLink, withAuth } from "./test-support/fixture.ts";
 
 test("real deferred COMMIT constraint failure preserves the prior link and cancels inbox publication", async () => {
   await withAuth(async ({ open, sql, namespace }) => {
     const server = await open();
-    const old = await issue(server);
+    const old = await issueSetupLink(server);
     await sql`CREATE TABLE ${sql(namespace)}.fixture_commit_guard (id integer PRIMARY KEY)`;
     await sql`CREATE TABLE ${sql(namespace)}.fixture_commit_fault (
       id integer REFERENCES ${sql(namespace)}.fixture_commit_guard(id) DEFERRABLE INITIALLY DEFERRED)`;
@@ -30,7 +30,7 @@ test("real deferred COMMIT constraint failure preserves the prior link and cance
 test("real session INSERT trigger rolls back claim, user and consumption without setting a cookie", async () => {
   await withAuth(async ({ open, sql, namespace }) => {
     const server = await open();
-    const link = await issue(server);
+    const link = await issueSetupLink(server);
     await sql`CREATE FUNCTION ${sql(namespace)}.reject_session() RETURNS trigger LANGUAGE plpgsql AS $$
       BEGIN RAISE EXCEPTION 'test session write fault' USING ERRCODE = '23514'; END $$`;
     await sql`CREATE TRIGGER fixture_session_fault BEFORE INSERT ON ${sql(namespace)}.auth_sessions

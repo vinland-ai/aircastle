@@ -1,12 +1,15 @@
 import { expect, test } from "vite-plus/test";
-import { browserOrigin, claim, issue, start, withAuth } from "./test-support/fixture.ts";
+import { browserOrigin, claim, issueSetupLink, start, withAuth } from "./test-support/fixture.ts";
 
 const invalid = { kind: "invalid-link", next: "setup" };
 
 test("request captures the actual normalized setup email without creating an identity or session", async () => {
   await withAuth(async ({ open }) => {
     const server = await open();
-    const link = await issue(server, " Alex@Example.Test ", "  Alex  Rivera  ");
+    const link = await issueSetupLink(server, {
+      email: " Alex@Example.Test ",
+      name: "  Alex  Rivera  ",
+    });
     expect(link.message.to).toEqual(["alex@example.test"]);
     expect(link.message.from).toBe("Aircastle <no-reply@aircastle.test>");
     expect(link.message.subject).toBe("Create your Aircastle account");
@@ -30,7 +33,7 @@ test("request captures the actual normalized setup email without creating an ide
 test("preview returns the request identity repeatedly without consuming it or setting a cookie", async () => {
   await withAuth(async ({ open }) => {
     const server = await open();
-    const link = await issue(server);
+    const link = await issueSetupLink(server);
     for (let attempt = 0; attempt < 2; attempt++) {
       const response = await server.request("/auth/confirm/preview", {
         purpose: "setup",
@@ -56,9 +59,12 @@ test("preview returns the request identity repeatedly without consuming it or se
 test("replacement supersedes only the same normalized email and preserves each request name", async () => {
   await withAuth(async ({ open }) => {
     const server = await open();
-    const old = await issue(server, "alex@example.test", "Old name");
-    const independent = await issue(server, "other@example.test", "Other name");
-    const latest = await issue(server, "ALEX@example.test", "New name");
+    const old = await issueSetupLink(server, { email: "alex@example.test", name: "Old name" });
+    const independent = await issueSetupLink(server, {
+      email: "other@example.test",
+      name: "Other name",
+    });
+    const latest = await issueSetupLink(server, { email: "ALEX@example.test", name: "New name" });
     const response = await server.request("/auth/confirm/preview", {
       purpose: "setup",
       token: old.token,
@@ -84,9 +90,9 @@ test("replacement supersedes only the same normalized email and preserves each r
 test("expired superseded links use the generic invalid outcome", async () => {
   await withAuth(async ({ open, at }) => {
     const server = await open();
-    const old = await issue(server);
+    const old = await issueSetupLink(server);
     at(1_000);
-    await issue(server);
+    await issueSetupLink(server);
     at(300_000);
     const response = await server.request("/auth/confirm/preview", {
       purpose: "setup",
@@ -122,7 +128,7 @@ test("known and unknown sign-in requests have exactly the same public classifica
 test("successful requests never include the usable token in the HTTP response or logs", async () => {
   await withAuth(async ({ open, logs, events }) => {
     const server = await open();
-    const link = await issue(server);
+    const link = await issueSetupLink(server);
     expect(JSON.stringify({ logs, events })).not.toContain(link.token);
     expect(JSON.stringify({ logs, events })).not.toContain(link.message.text);
     expect((await server.request("/development-inbox/messages")).headers.get("cache-control")).toBe(
@@ -134,7 +140,7 @@ test("successful requests never include the usable token in the HTTP response or
 test("link record storage keeps a digest and never the raw credential", async () => {
   await withAuth(async ({ open, sql, namespace }) => {
     const server = await open();
-    const link = await issue(server);
+    const link = await issueSetupLink(server);
     const tables = await sql<
       { table_name: string }[]
     >`SELECT table_name FROM information_schema.tables WHERE table_schema = ${namespace}`;
