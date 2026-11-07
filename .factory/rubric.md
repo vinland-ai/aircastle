@@ -25,3 +25,5 @@
 ## Communication standard
 
 A reader reaches the commands or the behaviour within the first screen. A diagram or code snippet replaces prose where it carries more, and is not added where prose is shorter.
+
+Blocker and should findings need reproduced, cited or owner evidence. A fixed disposition needs reproduced evidence on the new head; refuted needs cited or reproduced evidence. Affirmations name what was checked and how. Ungraded claims are rejected.

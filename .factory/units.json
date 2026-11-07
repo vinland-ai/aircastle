@@ -1,10 +1,422 @@
 {
   "units": [
-    { "id": "code", "globs": ["**/*"], "shared_inputs": [], "depends_on": [] },
+    {
+      "id": "schema",
+      "globs": ["packages/schema/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "contracts",
+      "globs": ["packages/contracts/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["schema"]
+    },
+    {
+      "id": "core",
+      "globs": ["packages/core/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["contracts", "schema"]
+    },
+    {
+      "id": "adapter-postgres",
+      "globs": ["packages/adapter-postgres/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["contracts", "core"]
+    },
+    {
+      "id": "client",
+      "globs": ["packages/client/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["contracts", "schema"]
+    },
+    {
+      "id": "cli",
+      "globs": ["packages/cli/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["client", "contracts", "schema"]
+    },
+    {
+      "id": "api-health",
+      "globs": ["apps/api/src/features/health/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["adapter-postgres", "contracts", "core"]
+    },
+    {
+      "id": "api-content",
+      "globs": ["apps/api/src/features/content/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["adapter-postgres", "contracts", "core"]
+    },
+    {
+      "id": "api-app",
+      "globs": ["apps/api/*", "apps/api/src/*"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["api-health", "api-content", "adapter-postgres", "contracts", "core"]
+    },
+    {
+      "id": "web-ui",
+      "globs": [
+        "apps/web/src/components/ui/**",
+        "apps/web/src/components/*",
+        "apps/web/src/hooks/**",
+        "apps/web/src/lib/**"
+      ],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "web-shell",
+      "globs": ["apps/web/src/components/shell/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["web-ui", "web-navigation"]
+    },
+    {
+      "id": "web-navigation",
+      "globs": ["apps/web/src/features/navigation/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["web-ui"]
+    },
+    {
+      "id": "web-error-recovery",
+      "globs": ["apps/web/src/features/error-recovery/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["web-ui"]
+    },
+    {
+      "id": "web-not-found",
+      "globs": ["apps/web/src/features/not-found/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["web-ui"]
+    },
+    {
+      "id": "web-sign-in",
+      "globs": ["apps/web/src/features/sign-in/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["web-ui"]
+    },
+    {
+      "id": "web-app",
+      "globs": ["apps/web/*", "apps/web/src/*", "apps/web/scripts/**", "apps/web/public/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": [
+        "web-ui",
+        "web-shell",
+        "web-navigation",
+        "web-error-recovery",
+        "web-not-found",
+        "web-sign-in"
+      ]
+    },
+    {
+      "id": "web-e2e",
+      "globs": ["apps/web/e2e/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["web-app", "web-shell", "web-navigation"]
+    },
+    {
+      "id": "scripts",
+      "globs": ["scripts/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["adapter-postgres", "client", "contracts", "core", "schema"]
+    },
+    {
+      "id": "repo-tests",
+      "globs": ["tests/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": ["adapter-postgres", "client", "contracts", "core", "schema", "scripts"]
+    },
+    {
+      "id": "workspace",
+      "globs": [
+        "package.json",
+        "bun.lock",
+        "tsconfig.json",
+        "vite.config.ts",
+        "vite.content.config.ts",
+        "vite.db.config.ts",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        ".gitignore",
+        ".env.example",
+        ".vite-hooks/**",
+        "compose.yaml"
+      ],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "github",
+      "globs": [".github/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "agent-instructions",
+      "globs": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "**/AGENTS.md",
+        "**/CLAUDE.md",
+        "ARCHITECTURE.md",
+        "apps/web/VERIFICATION.md",
+        ".agents/**",
+        ".claude/**"
+      ],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "factory-policy",
+      "globs": [".factory/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
+      "depends_on": []
+    },
     {
       "id": "public-docs",
-      "globs": ["README.md", "docs/**"],
-      "shared_inputs": [],
+      "globs": ["README.md", "FEATURES.md", "LICENSE"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts"
+      ],
       "depends_on": []
     }
   ]
