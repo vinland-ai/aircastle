@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import { installMountProbe, readMountProbe } from './mount-probe'
 import { test, expect } from './auth-service'
 import {
   capturedLink,
@@ -97,22 +97,6 @@ test.describe('protected path variants', () => {
     ]
   }
 
-  async function recordMounts(page: Page) {
-    await page.addInitScript(() => {
-      const seen = { projects: false, shell: false }
-      Object.assign(window, { protectedMounts: seen })
-      new MutationObserver(() => {
-        for (const title of document.querySelectorAll('h1'))
-          if (title.textContent === 'Projects') seen.projects = true
-        if (document.querySelector('[aria-label="Main navigation"]')) seen.shell = true
-      }).observe(document, { childList: true, subtree: true, characterData: true })
-    })
-  }
-
-  async function protectedMounts(page: Page) {
-    return page.evaluate(() => Reflect.get(window, 'protectedMounts'))
-  }
-
   test('B33 signed-out visits to protected path variants go to sign-in without mounting the page', async ({
     page,
     authService,
@@ -121,11 +105,14 @@ test.describe('protected path variants', () => {
     const email = uniqueEmail('variants-signed-out')
     await completeSetupAndSkip(page, email)
     await signOut(page, 'Alex', email)
-    await recordMounts(page)
+    await installMountProbe(page, 'protected-pages')
     for (const path of variants(project.workspaceId, project.projectId)) {
       await page.goto(path)
       await expectSignIn(page)
-      expect(await protectedMounts(page), path).toEqual({ projects: false, shell: false })
+      expect(await readMountProbe(page, 'protected-pages'), path).toEqual({
+        projects: false,
+        shell: false,
+      })
     }
   })
 
@@ -135,12 +122,15 @@ test.describe('protected path variants', () => {
   }) => {
     const project = await authService.provisionProject()
     await completeSetupAndSkip(page, uniqueEmail('variants-outsider'))
-    await recordMounts(page)
+    await installMountProbe(page, 'protected-pages')
     for (const path of variants(project.workspaceId, project.projectId)) {
       await page.goto(path)
       await expect(page).toHaveURL(`${origin(page)}/dash/workspaces`)
       await expect(heading(page, 'Workspaces')).toBeVisible()
-      expect(await protectedMounts(page), path).toEqual({ projects: false, shell: false })
+      expect(await readMountProbe(page, 'protected-pages'), path).toEqual({
+        projects: false,
+        shell: false,
+      })
     }
   })
 
@@ -152,17 +142,17 @@ test.describe('protected path variants', () => {
     const email = uniqueEmail('variants-member')
     await completeSetupAndSkip(page, email)
     await authService.grantWorkspace(email, project.workspaceId)
-    await recordMounts(page)
+    await installMountProbe(page, 'protected-pages')
     const projects = `/dash/workspaces/${project.workspaceId}/projects`
     await page.goto(projects)
     await expect(page).toHaveURL(`${origin(page)}${projects}`)
     await expect(heading(page, 'Projects')).toBeVisible()
-    expect(await protectedMounts(page)).toEqual({ projects: true, shell: false })
+    expect(await readMountProbe(page, 'protected-pages')).toEqual({ projects: true, shell: false })
     const collections = `${projects}/${project.projectId}/collections`
     await page.goto(collections)
     await expect(page).toHaveURL(`${origin(page)}${collections}`)
     await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible()
-    expect(await protectedMounts(page)).toEqual({ projects: false, shell: true })
+    expect(await readMountProbe(page, 'protected-pages')).toEqual({ projects: false, shell: true })
   })
 
   test('B36 a case-variant project page is checked again after access is removed or the session ends', async ({

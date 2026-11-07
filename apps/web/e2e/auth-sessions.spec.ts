@@ -1,3 +1,4 @@
+import { installMountProbe, readMountProbe, resetShellProbe } from './mount-probe'
 import { test, expect } from './auth-service'
 import { expectInbox, expectPublicPage, expectSetup, expectSignIn, signOut } from './auth-journey'
 import {
@@ -57,28 +58,17 @@ test('B19 signing out again from a second tab after the first tab signed out suc
 })
 
 test('B20 the back button after sign-out does not show the protected page', async ({ page }) => {
-  await page.addInitScript(() => {
-    const flashes: string[] = []
-    Object.assign(window, { authShellFlashes: flashes })
-    new MutationObserver(() => {
-      if (
-        document.querySelector('[data-theme-scope="dashboard"], [aria-label="Open account menu"]')
-      )
-        flashes.push(location.pathname)
-    }).observe(document, { childList: true, subtree: true, attributes: true })
-  })
+  await installMountProbe(page, 'signed-out-shell')
   const email = uniqueEmail('back')
   await completeSetupAndSkip(page, email)
   await page.getByRole('link', { name: 'Create workspace', exact: true }).click()
   await expect(heading(page, 'Create a workspace')).toBeVisible()
   await signOut(page, 'Alex', email)
-  await page.evaluate(() => {
-    Reflect.get(window, 'authShellFlashes').length = 0
-  })
+  await resetShellProbe(page)
   await page.goBack()
   await expectSignIn(page)
   await expectPublicPage(page)
-  expect(await page.evaluate(() => Reflect.get(window, 'authShellFlashes'))).toEqual([])
+  expect(await readMountProbe(page, 'signed-out-shell')).toEqual([])
 })
 
 test('B21 another open tab follows the sign-out on its next navigation', async ({ page }) => {
