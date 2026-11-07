@@ -13,7 +13,7 @@ import { createIssuanceRecovery } from "./issuance-recovery.ts";
 import type { PreparedLink } from "./issuance-recovery.ts";
 import { linkEmail, linkLifetime } from "./link-email.ts";
 import { eligibility, linkVerdict, lockSetupThenEmail, nextStep } from "./links.ts";
-import type { LinkVerdict } from "./links.ts";
+import type { LinkVerdict, SetupState } from "./links.ts";
 import type { AuthEvent } from "./diagnostics.ts";
 import type { AccountInput, LinkInput } from "./request.ts";
 import { startSession } from "./sessions.ts";
@@ -34,7 +34,10 @@ export function createCredentials(options: {
     report: options.report,
   });
 
-  async function inspect(tx: AuthTransaction, input: LinkInput | null): Promise<LinkVerdict> {
+  async function inspect(
+    tx: AuthTransaction,
+    input: LinkInput | null,
+  ): Promise<LinkVerdict & { setup: SetupState }> {
     const preliminary = input ? await tx.link(digest(input.token)) : null;
     const setup = await lockSetupThenEmail(tx, preliminary?.email);
     const record = input && preliminary ? await tx.link(digest(input.token)) : null;
@@ -47,7 +50,7 @@ export function createCredentials(options: {
       verdict = { kind: "failure", failure: { kind: "invalid-link", next: nextStep(setup) } };
     if (verdict.kind === "failure")
       options.emit({ kind: "sign-in-failed", reason: verdict.failure.kind });
-    return verdict;
+    return { ...verdict, setup };
   }
 
   return {
@@ -127,7 +130,7 @@ export function createCredentials(options: {
             kind: "failure" as const,
             failure: {
               kind: "invalid-link" as const,
-              next: record.identity.purpose === "setup" ? ("setup" as const) : ("sign-in" as const),
+              next: nextStep(result.setup),
             },
           };
         const user =

@@ -12,7 +12,8 @@ export type LinkVerdict =
   | { kind: "failure"; failure: LinkFailure };
 
 /** Where a browser goes after a failed link: setup while it is open, otherwise sign-in. */
-export const nextStep = (setup: SetupState) => (setup === "open" ? "setup" : "sign-in");
+export const nextStep = (setup: SetupState): "setup" | "sign-in" =>
+  setup === "open" ? "setup" : "sign-in";
 
 /**
  * Judges a link in precedence order. A missing, malformed, mismatched, expired or consumed link is
