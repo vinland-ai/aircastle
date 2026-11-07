@@ -1,14 +1,14 @@
 import { redirect } from '@tanstack/react-router'
 import type { RouteAccess, RouteParams } from './access'
-import { decideHop, type AuthView, type Entered, type Handoff, type Memory } from './guard'
-import { createAuthHttp, type AuthBrowserOptions } from './http'
+import { decideHop, type AuthView, type Handoff, type Memory } from './guard'
+import { createAuthApi, type AuthBrowserOptions } from './http'
 
 export function createBrowserAuth(options: AuthBrowserOptions = {}) {
-  const request = createAuthHttp(options)
+  const api = createAuthApi(options)
   let memory: Memory = { requested: undefined, confirmation: undefined }
   let handoff: Handoff | undefined
   return {
-    request,
+    api,
     get returnTo() {
       return memory.requested
     },
@@ -17,9 +17,6 @@ export function createBrowserAuth(options: AuthBrowserOptions = {}) {
     },
     settle() {
       handoff = undefined
-    },
-    async entry(body: object) {
-      return request<Entered>('/auth/entry', body)
     },
     /**
      * Runs one hop of a navigation. It takes the handoff left for this path, decides the hop, and
@@ -35,11 +32,10 @@ export function createBrowserAuth(options: AuthBrowserOptions = {}) {
       handoff = undefined
       const token = typeof search.token === 'string' && search.token ? search.token : undefined
       const hop = await decideHop({ ...route, path, token }, memory, handed, {
-        state: () => request('/auth/state', undefined, signal),
-        preview: (purpose, value) =>
-          request('/auth/confirm/preview', { purpose, token: value }, signal),
-        activity: () => request('/auth/activity', {}, signal),
-        entry: (body) => request('/auth/entry', body, signal),
+        state: () => api.state(signal),
+        preview: (purpose, value) => api.preview(purpose, value, signal),
+        activity: () => api.activity(signal),
+        entry: (body) => api.entry(body, signal),
       })
       if (signal.aborted) return { kind: 'failure' }
       memory = hop.memory

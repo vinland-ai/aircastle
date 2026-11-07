@@ -89,9 +89,7 @@ export function DevelopmentInbox() {
   const [reading, setReading] = useState<Reading>({ kind: 'none' })
   const openSequence = useRef(0)
   const list = useCallback(async () => {
-    const result = await auth.request<readonly DevelopmentInboxEntry[]>(
-      '/development-inbox/messages',
-    )
+    const result = await auth.api.inbox.list()
     setListing(
       result.kind === 'ok'
         ? {
@@ -120,10 +118,7 @@ export function DevelopmentInbox() {
   async function open(id: string) {
     const sequence = ++openSequence.current
     setReading({ kind: 'loading', id })
-    const result = await auth.request<DevelopmentInboxEntry>(
-      `/development-inbox/messages/${encodeURIComponent(id)}/open`,
-      {},
-    )
+    const result = await auth.api.inbox.open(id)
     if (sequence !== openSequence.current) return
     if (result.kind !== 'ok') {
       setReading({ kind: 'failed', id })

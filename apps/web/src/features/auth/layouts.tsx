@@ -39,7 +39,7 @@ function useShellAccount() {
       ? {
           user: view.session.user,
           signOut: async () => {
-            const result = await auth.request('/auth/sign-out', {})
+            const result = await auth.api.signOut()
             if (result.kind === 'ok') await router.navigate({ to: '/sign-in', replace: true })
             else setFailure(true)
           },

@@ -1,8 +1,8 @@
 import type { AuthSession, AuthState, LinkPreview } from '@aircastle/contracts'
 import { describe, expect, it } from 'vite-plus/test'
 import { access } from './access'
-import { decideHop, type AuthCalls, type Entered, type Memory } from './guard'
-import type { HttpResult } from './http'
+import { decideHop, type AuthCalls, type Memory } from './guard'
+import type { Entered, HttpResult } from './http'
 
 const session: AuthSession = {
   user: { id: 'u', name: 'Alex', email: 'alex@example.test', authority: 'super_user' },

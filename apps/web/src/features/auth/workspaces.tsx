@@ -18,7 +18,7 @@ export function WorkspacePage({
   async function skipOnboarding() {
     if (pending) return
     setPending(true)
-    const result = await auth.entry({ kind: 'skip-onboarding' })
+    const result = await auth.api.entry({ kind: 'skip-onboarding' })
     setPending(false)
     if (result.kind === 'ok')
       await router.navigate({ href: destinationPath(result.value.destination) })

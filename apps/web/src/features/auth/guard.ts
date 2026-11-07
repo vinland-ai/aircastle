@@ -1,12 +1,11 @@
 import type {
-  AuthDestination,
   AuthSession,
   AuthState,
   LinkPreview,
   ProtectedDestination,
 } from '@aircastle/contracts'
 import type { Guard, RouteAccess, RouteParams } from './access'
-import { destinationPath, type HttpResult } from './http'
+import { destinationPath, type Entered, type HttpResult } from './http'
 
 type Purpose = LinkPreview['purpose']
 
@@ -38,17 +37,14 @@ export type Hop = { memory: Memory; handoff: Handoff | undefined } & (
   | { kind: 'redirect'; to: string }
 )
 
-export type Entered = { destination: AuthDestination; session: AuthSession }
-type EntryRequest =
-  | { kind: 'resolve' }
-  | { kind: 'visit'; destination: ProtectedDestination }
-
 /** The server calls a hop may make. */
 export interface AuthCalls {
   state: () => Promise<HttpResult<AuthState>>
   preview: (purpose: Purpose, token: string) => Promise<HttpResult<LinkPreview>>
   activity: () => Promise<HttpResult<AuthSession>>
-  entry: (body: EntryRequest) => Promise<HttpResult<Entered>>
+  entry: (
+    body: { kind: 'resolve' } | { kind: 'visit'; destination: ProtectedDestination },
+  ) => Promise<HttpResult<Entered>>
 }
 
 /** The matched route of one hop, its path, and the link token in its search, if any. */

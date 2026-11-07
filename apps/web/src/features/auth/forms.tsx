@@ -48,7 +48,7 @@ export function AuthForm({ purpose }: { purpose: 'setup' | 'sign-in' }) {
           setErrors({})
           setSent(false)
           setMessage('')
-          const result = await auth.request(`/auth/${purpose}`, {
+          const result = await auth.api.requestLink(purpose, {
             ...input,
             ...(auth.returnTo ? { returnTo: auth.returnTo } : {}),
           })
