@@ -27,8 +27,8 @@ apps/
 
 packages/
 ├── schema/                   Collection definitions, validation, and descriptions
-├── contracts/                Shared content contracts, auth input validation, and compatibility
-├── core/                     CMS operations, authorization, publication, and resource lifecycle
+├── contracts/                Shared content contracts, auth input and destination validation, and compatibility
+├── core/                     CMS operations, authorization, auth admission rules, publication, and resource lifecycle
 ├── adapter-postgres/         Owned SQL storage, constraints, and migrations
 ├── client/                   Developer config and typed HTTP client
 └── cli/                      Schema publication, reconciliation, and lockfiles
