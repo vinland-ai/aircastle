@@ -1,4 +1,12 @@
-import { collection, compileSchema, text, type CollectionDescription } from "@aircastle/schema";
+import {
+  blocks,
+  collection,
+  compileSchema,
+  list,
+  object,
+  text,
+  type CollectionDescription,
+} from "@aircastle/schema";
 import { describe, expect, test } from "vite-plus/test";
 import { compileDescription, describeCollections, parseCollections, sameSchema } from "./index.ts";
 import {
@@ -57,6 +65,16 @@ describe("published collection descriptions", () => {
         }),
       },
     ]);
+  });
+
+  test.each([
+    ["a nested object field", { seo: object({ "first-name": text() }) }],
+    ["a field of a list item", { rows: list(object({ "row-label": text() })) }],
+    ["a block variant", { body: blocks({ "hero-x": object({ title: text() }) }) }],
+  ])("rejects a name the server would reject on %s", (_where, fields) => {
+    expect(() => describeCollections({ articles: collection(fields) })).toThrow(
+      new TypeError("Invalid collection description"),
+    );
   });
 
   test("accepts an empty project schema", () => {
