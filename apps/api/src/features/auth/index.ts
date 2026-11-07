@@ -1,7 +1,7 @@
 import type { AuthAdmissionStore, AuthLimits, AuthStore, ReportError } from "@aircastle/core";
 import type { AuthEvent } from "./diagnostics.ts";
 import { developmentAuth } from "./runtime.ts";
-import { authResponse, ok } from "./request.ts";
+import { failed, succeeded } from "./responses.ts";
 import type { DevelopmentInbox } from "../development-inbox/index.ts";
 
 export { authErrorReporter, createAuthEventLogger } from "./diagnostics.ts";
@@ -40,8 +40,8 @@ export async function createLocalAuth(options: LocalAuthOptions): Promise<LocalA
       handle: async (request) => {
         const url = new URL(request.url);
         return request.method === "GET" && url.pathname === "/api/auth/state"
-          ? authResponse(ok({ kind: "disabled" }))
-          : authResponse({ kind: "not-found" }, 404);
+          ? succeeded({ kind: "disabled" })
+          : failed({ kind: "not-found" });
       },
       close: async () => {},
     };

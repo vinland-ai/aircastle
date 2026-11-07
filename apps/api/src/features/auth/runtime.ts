@@ -3,7 +3,8 @@ import { createDevelopmentInbox } from "../development-inbox/index.ts";
 import { createCredentials } from "./credentials.ts";
 import { boundedEvents, storageUnavailable } from "./diagnostics.ts";
 import { createSessions, sessionCookie, sessionProjection } from "./sessions.ts";
-import { authResponse, jsonBody, ok, parseAccount, parseEntry, parseLink } from "./request.ts";
+import { jsonBody, parseAccount, parseEntry, parseLink } from "./request.ts";
+import { failed, succeeded } from "./responses.ts";
 import type { LocalAuthOptions, LocalAuthRuntime } from "./index.ts";
 
 const openMessageRoute = "/api/development-inbox/messages/:id/open";
@@ -42,7 +43,6 @@ export async function developmentAuth(
   const sessions = createSessions(storage, clock);
   const cookie = sessionCookie(config.browserOrigin, await storage.signingSecret());
   const origin = new URL(config.browserOrigin);
-  const unauthenticated = () => authResponse({ kind: "unauthenticated" }, 401);
 
   async function respond(
     request: Request,
@@ -50,64 +50,58 @@ export async function developmentAuth(
     peer: { address: string | undefined },
     openMessage: string | undefined,
   ): Promise<Response> {
-    if (path === "/api/development-inbox/messages") return authResponse(ok(inbox.list()));
+    if (path === "/api/development-inbox/messages") return succeeded(inbox.list());
     if (openMessage !== undefined) {
       let messageId: string;
       try {
         messageId = decodeURIComponent(openMessage);
       } catch (error) {
         if (!(error instanceof URIError)) throw error;
-        return authResponse({ kind: "not-found" }, 404);
+        return failed({ kind: "not-found" });
       }
       const entry = inbox.open(messageId);
-      return entry ? authResponse(ok(entry)) : authResponse({ kind: "not-found" }, 404);
+      return entry ? succeeded(entry) : failed({ kind: "not-found" });
     }
     const token = await cookie.read(request);
-    if (path === "/api/auth/state") return authResponse(ok(await sessions.state(token)));
+    if (path === "/api/auth/state") return succeeded(await sessions.state(token));
     if (path === "/api/auth/session") {
-      const pair = await sessions.read(token);
-      return pair ? authResponse(ok(sessionProjection(pair))) : unauthenticated();
+      const active = await sessions.read(token);
+      return active ? succeeded(sessionProjection(active)) : failed({ kind: "unauthenticated" });
     }
     if (path === "/api/auth/sign-out") {
       await sessions.signOut(token);
-      return authResponse(ok({ destination: "/sign-in" }), 200, { "Set-Cookie": cookie.clear() });
+      return succeeded({ destination: "/sign-in" }, { "Set-Cookie": cookie.clear() });
     }
     if (path === "/api/auth/activity") {
-      const pair = await sessions.activity(token);
-      if (!pair || !token) return unauthenticated();
-      return authResponse(ok(sessionProjection(pair)), 200, {
-        "Set-Cookie": await cookie.issue(token),
+      const active = await sessions.activity(token);
+      if (!active) return failed({ kind: "unauthenticated" });
+      return succeeded(sessionProjection(active), {
+        "Set-Cookie": await cookie.issue(active.token),
       });
     }
     const body = await jsonBody(request);
     if (path === "/api/auth/entry") {
       const result = await sessions.entry(token, parseEntry(body));
-      if (result.kind !== "ok" || !token)
-        return authResponse(
-          result.kind === "ok" ? { kind: "unauthenticated" } : result,
-          result.kind === "forbidden" ? 403 : result.kind === "invalid-input" ? 400 : 401,
-        );
-      return authResponse(
-        ok({ destination: result.destination, session: sessionProjection(result.pair) }),
-        200,
-        { "Set-Cookie": await cookie.issue(token) },
+      if (result.kind !== "ok") return failed(result);
+      return succeeded(
+        { destination: result.destination, session: sessionProjection(result.session) },
+        { "Set-Cookie": await cookie.issue(result.session.token) },
       );
     }
     if (path === "/api/auth/confirm") {
       const result = await credentials.confirm(parseLink(body));
-      if (result.kind === "failure")
-        return authResponse(result.failure, result.failure.kind === "setup-complete" ? 409 : 400);
-      return authResponse(ok({ destination: result.destination }), 200, {
-        "Set-Cookie": await cookie.issue(result.token),
-      });
+      if (result.kind === "failure") return failed(result.failure);
+      return succeeded(
+        { destination: result.destination },
+        { "Set-Cookie": await cookie.issue(result.token) },
+      );
     }
     if (path === "/api/auth/confirm/preview") {
       const result = await credentials.preview(parseLink(body));
-      if (result.kind === "failure")
-        return authResponse(result.failure, result.failure.kind === "setup-complete" ? 409 : 400);
-      return authResponse(ok({ email: result.email, purpose: result.purpose }));
+      if (result.kind === "failure") return failed(result.failure);
+      return succeeded({ email: result.email, purpose: result.purpose });
     }
-    if (!peer.address) return authResponse({ kind: "forbidden" }, 403);
+    if (!peer.address) return failed({ kind: "forbidden" });
     const purpose = path === "/api/auth/setup" ? "setup" : "sign-in";
     const parsed = parseAccount(body, purpose);
     const admitted = await admission.admit({
@@ -116,20 +110,17 @@ export async function developmentAuth(
     });
     if (admitted.kind === "throttled") {
       emit({ kind: "request-blocked", scopes: admitted.scopes });
-      return authResponse({ kind: "throttled", retryAt: admitted.retryAt }, 429, {
-        "Retry-After": String(Math.max(0, Math.ceil((admitted.retryAt - clock()) / 1000))),
-      });
-    }
-    if (parsed.kind === "invalid-input") return authResponse(parsed, 400);
-    const result = await credentials.issue(parsed.value);
-    if (result.kind === "issued")
-      return authResponse(
-        ok({ confirmation: purpose === "setup" ? "setup-inbox" : "sign-in-inbox" }),
+      return failed(
+        { kind: "throttled", retryAt: admitted.retryAt },
+        {
+          "Retry-After": String(Math.max(0, Math.ceil((admitted.retryAt - clock()) / 1000))),
+        },
       );
-    return authResponse(
-      result,
-      result.kind === "temporary-failure" ? 503 : result.kind === "email-not-allowed" ? 403 : 409,
-    );
+    }
+    if (parsed.kind === "invalid-input") return failed(parsed);
+    const result = await credentials.issue(parsed.value);
+    if (result.kind !== "issued") return failed(result);
+    return succeeded({ confirmation: purpose === "setup" ? "setup-inbox" : "sign-in-inbox" });
   }
 
   return {
@@ -143,19 +134,19 @@ export async function developmentAuth(
           : undefined;
       const route = openMessage === undefined ? path : openMessageRoute;
       if (!dispatched.some((entry) => entry.method === method && entry.path === route))
-        return authResponse({ kind: "not-found" }, 404);
+        return failed({ kind: "not-found" });
       if (
         (request.headers.get("host") ?? url.host) !== origin.host ||
         (request.headers.has("origin") && request.headers.get("origin") !== origin.origin) ||
         (method === "POST" && request.headers.get("origin") !== origin.origin)
       )
-        return authResponse({ kind: "forbidden" }, 403);
+        return failed({ kind: "forbidden" });
       try {
         return await respond(request, path, peer, openMessage);
       } catch (error) {
         if (!(error instanceof AuthStorageError)) throw error;
         emit(storageUnavailable(error));
-        return authResponse({ kind: "temporary-failure" }, 503);
+        return failed({ kind: "temporary-failure" });
       }
     },
     close: () => credentials.close(),

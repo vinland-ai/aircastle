@@ -80,13 +80,3 @@ export async function jsonBody(request: Request): Promise<unknown> {
     return undefined;
   }
 }
-
-/** Auth and inbox responses carry credentials or links, so they are never cached or referred. */
-export function authResponse(value: unknown, status = 200, headers: Record<string, string> = {}) {
-  return Response.json(value, {
-    status,
-    headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", ...headers },
-  });
-}
-
-export const ok = (value: unknown) => ({ kind: "ok" as const, value });

@@ -13,13 +13,14 @@ import { digest, newToken } from "./token.ts";
 
 const lifetime = 1_209_600_000;
 
-export interface SessionPair {
+/** A signed-in browser's bearer token, with its user and stored session. */
+export interface ActiveSession {
+  token: string;
   user: AuthUserRecord;
   session: AuthSessionRecord;
 }
 
-export function sessionProjection(pair: SessionPair) {
-  const { user, session } = pair;
+export function sessionProjection({ user, session }: ActiveSession) {
   return {
     user: { id: user.id, name: user.name, email: user.email, authority: "super_user" as const },
     expiresAt: session.expiresAt,
@@ -27,7 +28,11 @@ export function sessionProjection(pair: SessionPair) {
 }
 
 /** Starts a session inside the caller's transaction. Only the token's digest is stored. */
-export async function startSession(tx: AuthTransaction, user: AuthUserRecord, at: number) {
+export async function startSession(
+  tx: AuthTransaction,
+  user: AuthUserRecord,
+  at: number,
+): Promise<ActiveSession> {
   const token = newToken();
   const session = await tx.insertSession({
     id: randomUUID(),
@@ -37,7 +42,7 @@ export async function startSession(tx: AuthTransaction, user: AuthUserRecord, at
     createdAt: at,
     updatedAt: at,
   });
-  return { token, pair: { user, session } };
+  return { token, user, session };
 }
 
 /**
@@ -66,7 +71,7 @@ export function createSessions(storage: AuthStore, clock: () => number) {
     tx: AuthTransaction,
     token: string | undefined,
     access: "read" | "lock",
-  ): Promise<SessionPair | null> {
+  ): Promise<ActiveSession | null> {
     if (!token) return null;
     const session =
       access === "lock" ? await tx.lockSession(digest(token)) : await tx.session(digest(token));
@@ -74,13 +79,13 @@ export function createSessions(storage: AuthStore, clock: () => number) {
     const user = await tx.userById(session.userId);
     if (!user || (await tx.authority(user.id)) !== "super_user" || session.expiresAt <= clock())
       return null;
-    return { user, session };
+    return { token, user, session };
   }
 
-  async function renew(tx: AuthTransaction, pair: SessionPair): Promise<SessionPair | null> {
+  async function renew(tx: AuthTransaction, active: ActiveSession): Promise<ActiveSession | null> {
     const at = clock();
-    const session = await tx.renewSession(pair.session.tokenDigest, at, at + lifetime);
-    return session ? { user: pair.user, session } : null;
+    const session = await tx.renewSession(active.session.tokenDigest, at, at + lifetime);
+    return session ? { ...active, session } : null;
   }
 
   return {
@@ -116,7 +121,7 @@ export function createSessions(storage: AuthStore, clock: () => number) {
         const renewed = await renew(tx, pair);
         if (!renewed) return { kind: "unauthenticated" as const };
         await tx.saveEntry(pair.user.id, result.entry);
-        return { kind: "ok" as const, destination: result.destination, pair: renewed };
+        return { kind: "ok" as const, destination: result.destination, session: renewed };
       }),
     signOut: async (token: string | undefined) => {
       if (!token) return;

@@ -142,14 +142,14 @@ export function createCredentials(options: {
             : await tx.userById(record.identity.userId);
         if (!user) throw new AuthStorageError("unavailable");
         if (record.identity.purpose === "setup") await tx.completeSetup(user.id);
-        const { token, pair } = await startSession(tx, user, at);
+        const { token } = await startSession(tx, user, at);
         let destination: ProtectedDestination | { kind: "dashboard" } = { kind: "dashboard" };
         if (record.returnTo && (await tx.authorize(user.id, record.returnTo))) {
           destination = record.returnTo;
           const entry = await tx.entry(user.id);
           await tx.saveEntry(user.id, { ...entry, onboardingOffered: true });
         }
-        return { kind: "confirmed" as const, token, pair, destination };
+        return { kind: "confirmed" as const, token, destination };
       });
     },
     close: () => recovery.close(),
