@@ -258,17 +258,21 @@ test('resizing does not move the mobile drawer trigger during a pointer press', 
 
 test('desktop collapse and mobile drawer state remain independent across resizing', async ({
   page,
-}) => {
+}, info) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await visit(page)
   await visibleSidebarTrigger(page).click()
   await expect(visibleSidebarTrigger(page)).toHaveAttribute('aria-expanded', 'false')
+  if (info.project.use.video && info.project.use.video !== 'off')
+    await page.screenshot({ path: info.outputPath('desktop-collapsed.png') })
   for (const width of [390, 767]) {
     await page.setViewportSize({ width, height: 844 })
     const mobile = visibleSidebarTrigger(page)
     await expect(mobile).toHaveAttribute('aria-expanded', 'false')
     await mobile.click()
     await expect(page.getByRole('dialog')).toBeVisible()
+    if (info.project.use.video && info.project.use.video !== 'off')
+      await page.screenshot({ path: info.outputPath(`mobile-${width}-drawer-open.png`) })
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).toBeHidden()
     await expect(mobile).toBeFocused()
