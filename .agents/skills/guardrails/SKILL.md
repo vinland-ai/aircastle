@@ -24,6 +24,7 @@ Put each rule at the highest layer that can express it.
 | Rule | Enforced in | See it fail |
 | --- | --- | --- |
 | Lint correctness errors fail | `vite.config.ts` `lint.categories.correctness: "error"`; the `lint` script is `vp lint --deny-warnings` | `[3, 1].sort()` in a source file, then `vp run lint` |
+| Production auth functions stay within 70 nonblank, noncomment lines, complexity 15 and block depth 4 | `vite.config.ts` auth override uses stock `max-lines-per-function`, `complexity` and `max-depth`; tests and test-support are excluded. `tests/harness/code-policy.test.ts` protects scope, caps and global bans in overrides | Restore `postgresAuthAdmission` from `c4a0ba2` or `enter` from `49f44ec`, then lint its file. Both fail `max-lines-per-function`; `enter` also fails `complexity`. Split concerns rather than widening the limits |
 | No `any`, no `@ts-` comments, no namespaces | `vite.config.ts` rules `typescript/no-explicit-any`, `typescript/ban-ts-comment`, `typescript/no-namespace` | `const x: any = 1` in a source file, then `vp run lint` |
 | Exhaustive switches, only `Error` objects thrown | `typescript/switch-exhaustiveness-check`; `typescript/only-throw-error`, which allows only TanStack Router's `Redirect` | A switch missing a union member, or `throw "bad"`, then `vp run lint` |
 | Interface members are properties, not methods | `typescript/method-signature-style` | `read(): void` in an interface, then `vp run lint` |

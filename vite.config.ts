@@ -102,6 +102,27 @@ export default defineConfig({
     },
     overrides: [
       {
+        files: [
+          "apps/api/src/features/auth/**",
+          "apps/api/src/features/development-inbox/**",
+          "packages/adapter-postgres/src/auth/**",
+          "packages/core/src/auth*.{ts,tsx}",
+          "packages/core/src/auth*/**",
+          "packages/contracts/src/auth*.{ts,tsx}",
+          "packages/contracts/src/auth*/**",
+          "apps/web/src/features/auth/**",
+        ],
+        excludeFiles: ["**/*.test.{ts,tsx}", "**/test-support/**"],
+        rules: {
+          "max-lines-per-function": [
+            "error",
+            { max: 70, skipBlankLines: true, skipComments: true, IIFEs: true },
+          ],
+          complexity: ["error", { max: 15 }],
+          "max-depth": ["error", { max: 4 }],
+        },
+      },
+      {
         files: ["apps/web/**"],
         rules: {
           "no-restricted-imports": [
@@ -149,7 +170,7 @@ export default defineConfig({
         plugins: ["node"],
         rules: {
           "node/no-process-env": "error",
-          "no-restricted-properties": ["error", bunEnv, rawSql],
+          "no-restricted-properties": ["error", bunEnv, rawSql, ...disabledTests],
           "no-restricted-imports": [
             "error",
             {
@@ -167,17 +188,17 @@ export default defineConfig({
         plugins: ["node"],
         rules: {
           "node/no-process-env": "off",
-          "no-restricted-properties": ["error", rawSql],
+          "no-restricted-properties": ["error", rawSql, ...disabledTests],
           "no-restricted-imports": "off",
         },
       },
       {
         files: ["packages/adapter-postgres/src/identifier.ts"],
-        rules: { "no-restricted-properties": ["error", bunEnv] },
+        rules: { "no-restricted-properties": ["error", bunEnv, ...disabledTests] },
       },
       {
         files: ["packages/adapter-postgres/src/test-support/database.ts"],
-        rules: { "no-restricted-properties": "off" },
+        rules: { "no-restricted-properties": ["error", ...disabledTests] },
       },
       {
         files: ["packages/cli/src/index.ts"],
@@ -233,10 +254,9 @@ export default defineConfig({
               })),
               patterns: [
                 {
-                  regex:
-                    "^(better-auth|@better-auth|hono|postgres|@aircastle/adapter-postgres)(/|$)",
+                  regex: "^(hono|postgres|@aircastle/adapter-postgres)(/|$)",
                   message:
-                    "Core defines operations and storage contracts; it cannot import HTTP, auth libraries or database drivers.",
+                    "Core defines operations and storage contracts; it cannot import HTTP libraries or database drivers.",
                 },
               ],
             },
@@ -259,7 +279,7 @@ export default defineConfig({
             {
               patterns: [
                 {
-                  regex: "^(bun|postgres|pino|better-auth|@better-auth|hono)(:|/|$)",
+                  regex: "^(bun|postgres|pino|hono)(:|/|$)",
                   message:
                     "Browser-safe code cannot import server runtimes, drivers or server libraries.",
                 },

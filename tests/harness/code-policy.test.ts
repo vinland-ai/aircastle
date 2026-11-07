@@ -1,3 +1,4 @@
+import config from "../../vite.config.ts";
 import { spawnSync } from "node:child_process";
 import { expect, test } from "vite-plus/test";
 import { inspectCode, workspaceCycles, type Workspace } from "../../scripts/check-code-policy.ts";
@@ -421,4 +422,47 @@ test("rejects an allowance that no longer matches its file", () => {
   expect(
     inspectCode("packages/cli/src/index.ts", "try { run(); } catch { fallback(); }\n"),
   ).toEqual([{ line: 1, column: 1, rule: "stale-catch-allowance" }]);
+});
+
+test("production auth has bounded functions without broad exemptions", () => {
+  const overrides = config.lint?.overrides ?? [];
+  const bounded = overrides.filter(
+    (entry) => entry.rules?.["max-lines-per-function"] !== undefined,
+  );
+  expect(bounded).toHaveLength(1);
+  expect(bounded[0]?.files).toEqual([
+    "apps/api/src/features/auth/**",
+    "apps/api/src/features/development-inbox/**",
+    "packages/adapter-postgres/src/auth/**",
+    "packages/core/src/auth*.{ts,tsx}",
+    "packages/core/src/auth*/**",
+    "packages/contracts/src/auth*.{ts,tsx}",
+    "packages/contracts/src/auth*/**",
+    "apps/web/src/features/auth/**",
+  ]);
+  expect(bounded[0]?.excludeFiles).toEqual(["**/*.test.{ts,tsx}", "**/test-support/**"]);
+  expect(bounded[0]?.rules).toMatchObject({
+    "max-lines-per-function": [
+      "error",
+      { max: 70, skipBlankLines: true, skipComments: true, IIFEs: true },
+    ],
+    complexity: ["error", { max: 15 }],
+    "max-depth": ["error", { max: 4 }],
+  });
+  for (const entry of overrides) {
+    for (const name of ["complexity", "max-depth"]) {
+      if (entry.rules?.[name] !== undefined) expect(entry).toBe(bounded[0]);
+    }
+  }
+});
+
+test("lint property overrides preserve the global disabled-test bans", () => {
+  for (const entry of config.lint?.overrides ?? []) {
+    const rule = entry.rules?.["no-restricted-properties"];
+    if (!rule) continue;
+    expect(Array.isArray(rule)).toBe(true);
+    for (const property of ["skip", "skipIf", "runIf", "todo", "fails", "fixme"]) {
+      expect(rule).toContainEqual(expect.objectContaining({ property }));
+    }
+  }
 });
