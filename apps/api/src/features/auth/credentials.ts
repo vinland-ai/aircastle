@@ -7,12 +7,9 @@ import type {
   ProtectedDestination,
   ReportError,
 } from "@aircastle/core";
-import type {
-  DevelopmentInbox,
-  DevelopmentInboxPublication,
-  EmailMessage,
-} from "../development-inbox/index.ts";
+import type { DevelopmentInbox, DevelopmentInboxPublication } from "../development-inbox/index.ts";
 import { storageUnavailable } from "./diagnostics.ts";
+import { linkEmail, linkLifetime } from "./link-email.ts";
 import type { AuthEvent } from "./diagnostics.ts";
 import type { AccountInput, LinkInput } from "./request.ts";
 import { startSession } from "./sessions.ts";
@@ -21,32 +18,6 @@ import { digest, newToken } from "./token.ts";
 type LinkFailure =
   | { kind: "invalid-link" | "superseded-link"; next: "setup" | "sign-in" }
   | { kind: "setup-complete" };
-
-const escapeHtml = (text: string) =>
-  text.replace(
-    /[&<>"']/g,
-    (character) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ??
-      character,
-  );
-
-function message(record: AuthLinkRecord, token: string, origin: string): EmailMessage {
-  const setup = record.identity.purpose === "setup";
-  const heading = setup
-    ? "Confirm your email to create your account."
-    : "Use this link to sign in.";
-  const name = record.identity.purpose === "setup" ? record.identity.name : record.email;
-  const url = `${origin}/${setup ? "setup" : "sign-in"}?token=${encodeURIComponent(token)}`;
-  return {
-    messageId: record.messageId,
-    date: new Date(record.issuedAt).toISOString(),
-    from: "Aircastle <no-reply@aircastle.test>",
-    to: [record.email],
-    subject: setup ? "Create your Aircastle account" : "Sign in to Aircastle",
-    text: `${heading}\n\n${name}\n${record.email}\n\nContinue: ${url}\n\nThis link expires in 5 minutes.`,
-    html: `<p>${heading}</p><p>${escapeHtml(name)}<br>${escapeHtml(record.email)}</p><p><a href="${escapeHtml(url)}">Continue</a></p><p>This link expires in 5 minutes.</p>`,
-  };
-}
 
 export function createCredentials(options: {
   storage: AuthStore;
@@ -160,12 +131,12 @@ export function createCredentials(options: {
             email: input.email,
             identity,
             issuedAt: at,
-            expiresAt: at + 300_000,
+            expiresAt: at + linkLifetime,
             status: "active",
             returnTo: input.returnTo,
           };
           try {
-            publication = await options.inbox.prepare(message(record, token, options.origin));
+            publication = await options.inbox.prepare(linkEmail(record, token, options.origin));
           } catch {
             options.emit({ kind: "delivery-failed" });
             return { kind: "temporary-failure" as const };
