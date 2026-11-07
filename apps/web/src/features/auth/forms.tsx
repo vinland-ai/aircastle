@@ -1,70 +1,104 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { authSetupInput, authSignInInput } from '@aircastle/contracts'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { AtSignIcon } from 'lucide-react'
 import { useAuth } from './context'
+import type { AccountRequest, HttpResult } from './http'
 
-export function AuthForm({ purpose }: { purpose: 'setup' | 'sign-in' }) {
-  const { auth } = useAuth()
-  const [errors, setErrors] = useState<{ name?: string; email?: string }>({})
-  const [pending, setPending] = useState(false)
-  const submitting = useRef(false)
-  const [sent, setSent] = useState(false)
-  const [message, setMessage] = useState('')
-  const [retryAt, setRetryAt] = useState(0)
+type Purpose = 'setup' | 'sign-in'
+type FieldErrors = { name?: string; email?: string }
+
+type Outcome =
+  | { kind: 'idle' }
+  | { kind: 'sending' }
+  | { kind: 'sent' }
+  | { kind: 'throttled'; retryAt: number; at: number }
+  | { kind: 'failed'; message: string }
+
+const idle: Outcome = { kind: 'idle' }
+
+function readForm(
+  purpose: Purpose,
+  values: FormData,
+): { kind: 'valid'; input: AccountRequest } | { kind: 'invalid'; fields: FieldErrors } {
+  const input =
+    purpose === 'setup'
+      ? authSetupInput({ name: values.get('name'), email: values.get('email') })
+      : authSignInInput({ email: values.get('email') })
+  if (!('summary' in input)) return { kind: 'valid', input }
+  const fields: FieldErrors = {}
+  for (const error of input) {
+    if (error.path[0] === 'name') fields.name = 'Enter a name with 1 through 120 characters.'
+    if (error.path[0] === 'email') fields.email = 'Enter a valid email address.'
+  }
+  return { kind: 'invalid', fields }
+}
+
+function outcomeFrom(
+  result: HttpResult<unknown>,
+  at: number,
+): { outcome: Outcome; fields: FieldErrors } {
+  if (result.kind === 'ok') return { outcome: { kind: 'sent' }, fields: {} }
+  if (result.kind === 'email-not-allowed')
+    return { outcome: idle, fields: { email: 'This email is not allowed for initial setup' } }
+  if (result.kind === 'throttled')
+    return { outcome: { kind: 'throttled', retryAt: result.retryAt, at }, fields: {} }
+  const message =
+    result.kind === 'setup-complete'
+      ? 'Setup is complete. Sign in to continue'
+      : 'Could not create your sign-in email. Try again.'
+  return { outcome: { kind: 'failed', message }, fields: {} }
+}
+
+function useSecondsLeft(outcome: Outcome) {
+  const throttle = outcome.kind === 'throttled' ? outcome : undefined
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
-    if (!retryAt) return
-    const timer = window.setInterval(() => setNow(Date.now()), 100)
+    if (!throttle) return
+    const timer = window.setInterval(() => {
+      const current = Date.now()
+      setNow(current)
+      if (current >= throttle.retryAt) window.clearInterval(timer)
+    }, 100)
     return () => window.clearInterval(timer)
-  }, [retryAt])
-  const seconds = Math.max(0, Math.ceil((retryAt - now) / 1000))
+  }, [throttle])
+  return throttle
+    ? Math.max(0, Math.ceil((throttle.retryAt - Math.max(now, throttle.at)) / 1000))
+    : 0
+}
+
+export function AuthForm({ purpose }: { purpose: Purpose }) {
+  const { auth } = useAuth()
+  const [errors, setErrors] = useState<FieldErrors>({})
+  const [outcome, setOutcome] = useState<Outcome>(idle)
+  const submitting = useRef(false)
+  const seconds = useSecondsLeft(outcome)
+  const pending = outcome.kind === 'sending'
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (submitting.current || (outcome.kind === 'throttled' && Date.now() < outcome.retryAt)) return
+    const form = readForm(purpose, new FormData(event.currentTarget))
+    if (form.kind === 'invalid') {
+      setErrors(form.fields)
+      return
+    }
+    submitting.current = true
+    setErrors({})
+    setOutcome({ kind: 'sending' })
+    const result = await auth.api.requestLink(purpose, {
+      ...form.input,
+      ...(auth.returnTo ? { returnTo: auth.returnTo } : {}),
+    })
+    submitting.current = false
+    const next = outcomeFrom(result, Date.now())
+    setErrors(next.fields)
+    setOutcome(next.outcome)
+  }
   return (
     <>
-      <form
-        noValidate
-        onSubmit={async (event) => {
-          event.preventDefault()
-          if (submitting.current || Date.now() < retryAt) return
-          const values = new FormData(event.currentTarget)
-          const input =
-            purpose === 'setup'
-              ? authSetupInput({ name: values.get('name'), email: values.get('email') })
-              : authSignInInput({ email: values.get('email') })
-          if ('summary' in input) {
-            const fields: { name?: string; email?: string } = {}
-            for (const error of input) {
-              if (error.path[0] === 'name')
-                fields.name = 'Enter a name with 1 through 120 characters.'
-              if (error.path[0] === 'email') fields.email = 'Enter a valid email address.'
-            }
-            setErrors(fields)
-            return
-          }
-          submitting.current = true
-          setPending(true)
-          setErrors({})
-          setSent(false)
-          setMessage('')
-          const result = await auth.api.requestLink(purpose, {
-            ...input,
-            ...(auth.returnTo ? { returnTo: auth.returnTo } : {}),
-          })
-          submitting.current = false
-          setPending(false)
-          if (result.kind === 'ok') setSent(true)
-          else if (result.kind === 'email-not-allowed')
-            setErrors({ email: 'This email is not allowed for initial setup' })
-          else if (result.kind === 'throttled') {
-            setRetryAt(result.retryAt)
-            setNow(Date.now())
-          } else if (result.kind === 'setup-complete')
-            setMessage('Setup is complete. Sign in to continue')
-          else setMessage('Could not create your sign-in email. Try again.')
-        }}
-      >
+      <form noValidate onSubmit={submit}>
         <FieldGroup className="gap-4">
           {purpose === 'setup' && (
             <Field data-invalid={!!errors.name}>
@@ -105,13 +139,13 @@ export function AuthForm({ purpose }: { purpose: 'setup' | 'sign-in' }) {
           </Button>
         </FieldGroup>
       </form>
-      {message && <p role="alert">{message}</p>}
+      {outcome.kind === 'failed' && <p role="alert">{outcome.message}</p>}
       {seconds > 0 && (
         <p role="alert">
           Too many requests. Try again in {seconds} {seconds === 1 ? 'second' : 'seconds'}.
         </p>
       )}
-      {sent && (
+      {outcome.kind === 'sent' && (
         <div role="status" className="space-y-3 rounded-lg border bg-muted/30 p-4 text-sm">
           <p>
             {purpose === 'setup'

@@ -219,4 +219,40 @@ describe('Auth forms over display-only HTTP doubles', () => {
     ).toBeTruthy()
     expect(http.calls('/auth/sign-in')).toHaveLength(2)
   })
+  it.each(['temporary-failure', 'setup-complete', 'email-not-allowed', 'throttled'])(
+    'a failed resend clears the sent notice for %s and allows inbox access by navigation',
+    async (kind) => {
+      let attempts = 0
+      const http = displayHttp({
+        'POST /api/auth/sign-in': () =>
+          ++attempts === 1
+            ? ok({ confirmation: 'sign-in-inbox' })
+            : failure(kind, kind === 'throttled' ? 429 : 503, { retryAt: Date.now() + 2000 }),
+      })
+      const { user } = await mountAuth('/sign-in', http)
+      await submitSignIn(user, 'alex@example.test')
+      expect(await screen.findByRole('link', { name: 'Open development inbox' })).toBeTruthy()
+      await user.click(screen.getByRole('button', { name: 'Send sign-in link' }))
+      await waitFor(() => expect(http.calls('/auth/sign-in')).toHaveLength(2))
+      await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+      expect(await screen.findByRole('alert')).toBeTruthy()
+      expectNoShell()
+    },
+  )
+
+  it('client validation retains the prior sent notice and its usable inbox link', async () => {
+    const http = displayHttp({
+      'POST /api/auth/sign-in': () => ok({ confirmation: 'sign-in-inbox' }),
+    })
+    const { user } = await mountAuth('/sign-in', http)
+    await submitSignIn(user, 'alex@example.test')
+    expect(await screen.findByRole('link', { name: 'Open development inbox' })).toBeTruthy()
+    await user.clear(screen.getByRole('textbox', { name: 'Email' }))
+    await user.click(screen.getByRole('button', { name: 'Send sign-in link' }))
+    await expectFieldError(screen.getByRole('textbox', { name: 'Email' }))
+    expect(screen.getByRole('link', { name: 'Open development inbox' }).getAttribute('href')).toBe(
+      '/development-inbox',
+    )
+    expect(http.calls('/auth/sign-in')).toHaveLength(1)
+  })
 })
