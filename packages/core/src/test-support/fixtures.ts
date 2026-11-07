@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type {
   CollectionDescription,
   ContentDocument,
+  DocumentData,
   Permission,
   ProjectState,
   PublishedCollection,
@@ -26,7 +27,11 @@ export const otherProject = "44444444-4444-4444-8444-444444444444";
 export const contract = `v1:${"1".repeat(64)}`;
 export const access: Access = { project, apiKey: "ac_test_secret_never_store_raw" };
 
-export const articles: CollectionDescription = {
+export const articles: {
+  readonly fields: Readonly<
+    Record<string, Extract<CollectionDescription["fields"][string], { type: "text" }>>
+  >;
+} = {
   fields: {
     title: { type: "text", required: true, nullable: false, unique: false, min: 1 },
     slug: { type: "text", required: true, nullable: false, unique: true },
@@ -42,6 +47,11 @@ export const articles: CollectionDescription = {
   },
 };
 export const collections: PublishedCollection[] = [{ name: "articles", description: articles }];
+
+/** A reference lookup or insert the service made, in call order. */
+export type StorageCall =
+  | { kind: "existing"; collection: string; ids: string[] }
+  | { kind: "insert"; collection: string; data: DocumentData };
 
 export function successful<Value>(result: Result<Value>): Value {
   expect(result.ok).toBe(true);
@@ -147,6 +157,7 @@ export function controlledStore(
     closed: 0,
     transactions: 0,
     authorization: [] as { project: string; verifier: string; permission: Permission }[],
+    storage: [] as StorageCall[],
   };
   const transaction: ProjectTransaction = {
     state: async () => structuredClone(state),
@@ -163,6 +174,7 @@ export function controlledStore(
       }
     },
     insert: async (collection, data, uniqueFields) => {
+      observations.storage.push({ kind: "insert", collection, data: structuredClone(data) });
       const existing = active(collection);
       const conflict = uniqueFields.find(
         (field) =>
@@ -219,6 +231,14 @@ export function controlledStore(
         )
         .sort((left, right) => comparePositions(order, left.position, right.position));
       return { entries: matching.slice(0, limit), more: matching.length > limit };
+    },
+    existing: async (collection, ids) => {
+      observations.storage.push({ kind: "existing", collection, ids: [...ids] });
+      return new Set(
+        active(collection)
+          .map((document) => document.id)
+          .filter((id) => ids.includes(id)),
+      );
     },
   };
   const store: ContentStore = {

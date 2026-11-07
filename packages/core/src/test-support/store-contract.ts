@@ -203,6 +203,28 @@ export function contentStoreContract(name: string, open: OpenStore): void {
         });
       }));
 
+    test("existing reports which of the given ids are documents of that collection", () =>
+      open(async ({ store, project }) => {
+        const [article, page] = await store.transaction(project, async (transaction) => {
+          await transaction.activate(collections, publication);
+          return [
+            await transaction.insert("articles", { title: "Article", slug: "article" }, ["slug"]),
+            await transaction.insert("pages", { title: "Page", slug: "page" }, ["slug"]),
+          ];
+        });
+        if (!article?.ok || !page?.ok) throw new Error("Expected both inserts to succeed");
+        const absent = "f0000000-0000-4000-8000-000000000001";
+        await store.transaction(project, async (transaction) => {
+          expect(
+            await transaction.existing("articles", [article.data.id, page.data.id, absent]),
+          ).toEqual(new Set([article.data.id]));
+          expect(await transaction.existing("pages", [article.data.id, page.data.id])).toEqual(
+            new Set([page.data.id]),
+          );
+          expect(await transaction.existing("articles", [])).toEqual(new Set());
+        });
+      }));
+
     test("unique values conflict only within the same collection and field", () =>
       open(async ({ store, project }) => {
         const results = await store.transaction(project, async (transaction) => {

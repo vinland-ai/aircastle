@@ -1,10 +1,16 @@
-import type { IssuePath, NonemptyIssues, SchemaIssue, ValidationIssue } from "./contract.ts";
+import type {
+  ExpectedType,
+  IssuePath,
+  NonemptyIssues,
+  SchemaIssue,
+  ValidationIssue,
+} from "./contract.ts";
 
 type Details<Issue> = Issue extends { path: IssuePath; message: string }
   ? Omit<Issue, "path" | "message">
   : never;
 
-const validationMessages: Record<ValidationIssue["code"], string> = {
+const validationMessages: Record<Exclude<ValidationIssue["code"], "invalid_type">, string> = {
   required: "This field is required.",
   invalid_document: "Expected a plain document with enumerable data properties.",
   invalid_unicode: "Text contains an unpaired Unicode surrogate.",
@@ -12,17 +18,48 @@ const validationMessages: Record<ValidationIssue["code"], string> = {
   invalid_email: "Expected an email address in the supported format.",
   invalid_url: "Expected an absolute HTTP or HTTPS URL in the supported format.",
   unknown_field: "This field is not declared in the collection.",
-  invalid_type: "Expected a text value.",
   too_short: "Text is shorter than the configured minimum.",
   too_long: "Text is longer than the configured maximum.",
-  invalid_choice: "Text must match one of the declared choices.",
+  invalid_choice: "The value must match one of the declared choices.",
+  not_integer: "Expected an integer.",
+  too_small: "The number is smaller than the configured minimum.",
+  too_large: "The number is larger than the configured maximum.",
+  invalid_date: "Expected a calendar date in YYYY-MM-DD format.",
+  invalid_datetime: "Expected a date and time with a timezone offset.",
+  too_early: "The date is earlier than the configured minimum.",
+  too_late: "The date is later than the configured maximum.",
+  invalid_list: "Expected a dense list without extra properties.",
+  too_few: "The list has fewer items than the configured minimum.",
+  too_many: "The list has more items than the configured maximum.",
+  invalid_object: "Expected a plain object with enumerable data properties.",
+  invalid_reference: "Expected a document id.",
+  not_found: "The referenced document does not exist.",
+  invalid_block_type: "Expected a block with a declared type.",
+  duplicate_id: "This id is already used by an earlier item in the list.",
+  invalid_id: "Expected a nonempty id.",
+  invalid_json: "Expected a JSON value.",
+  invalid_point: "Expected a point with only numeric lat and lng.",
+  out_of_range: "The coordinate is outside the allowed range.",
+};
+
+const expectedTypeMessages: Record<ExpectedType, string> = {
+  string: "Expected a text value.",
+  number: "Expected a number.",
+  boolean: "Expected true or false.",
+  array: "Expected a list.",
+  object: "Expected an object.",
+  json: "Expected a JSON value.",
 };
 
 export function validationIssue(
   path: IssuePath,
   details: Details<ValidationIssue>,
 ): ValidationIssue {
-  return { ...details, path: [...path], message: validationMessages[details.code] };
+  const message =
+    details.code === "invalid_type"
+      ? expectedTypeMessages[details.expected]
+      : validationMessages[details.code];
+  return { ...details, path: [...path], message };
 }
 
 export function schemaIssue(path: IssuePath, details: Details<SchemaIssue>): SchemaIssue {

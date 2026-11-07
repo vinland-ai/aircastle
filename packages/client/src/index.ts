@@ -7,7 +7,7 @@ import type {
   Fetch,
   Result,
 } from "@aircastle/contracts";
-import type { InferInput, InferOutput } from "@aircastle/schema";
+import type { InferInput, InferRead } from "@aircastle/schema";
 import {
   deletedDocument,
   documentPage,
@@ -34,10 +34,13 @@ type FilterValue<Collection extends Definition, Name extends FieldName<Collectio
   InferInput<Collection>[Name],
   null | undefined
 >;
+type TextFieldName<Collection extends Definition> = {
+  [Name in FieldName<Collection>]: FilterValue<Collection, Name> extends string ? Name : never;
+}[FieldName<Collection>];
 /** A document as `findById`, `update` and `list` return it. */
 export type StoredDocument<Collection extends Definition> = {
   id: string;
-} & InferOutput<Collection>;
+} & InferRead<Collection>;
 /** Fields to replace. A property whose value is `undefined` changes nothing. */
 export type DocumentChanges<Collection extends Definition> = {
   [Name in FieldName<Collection>]?: InferInput<Collection>[Name] | undefined;
@@ -54,16 +57,16 @@ export interface FieldOperators<Value extends string> {
   empty?: boolean;
   contains?: string;
 }
-/** Conditions keyed by field name. All conditions combine with AND. */
+/** Conditions keyed by text field name. All conditions combine with AND. */
 export type DocumentWhere<Collection extends Definition> = {
-  [Name in FieldName<Collection>]?:
-    | FilterValue<Collection, Name>
-    | FieldOperators<FilterValue<Collection, Name>>;
+  [Name in TextFieldName<Collection>]?:
+    | Extract<FilterValue<Collection, Name>, string>
+    | FieldOperators<Extract<FilterValue<Collection, Name>, string>>;
 };
-/** `sort` names a field, ascending, or descending with a `-` prefix. */
+/** `sort` names a text field, ascending, or descending with a `-` prefix. */
 export interface ListQuery<Collection extends Definition> {
   where?: DocumentWhere<Collection>;
-  sort?: FieldName<Collection> | `-${FieldName<Collection>}`;
+  sort?: TextFieldName<Collection> | `-${TextFieldName<Collection>}`;
   limit?: number;
   cursor?: string;
 }
