@@ -1,7 +1,8 @@
-import { createElement, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import type { DevelopmentInboxEntry } from '@aircastle/contracts'
 import { useAuth } from './context'
+import { renderMailHtml } from './mail-html'
 
 type Messages =
   | { kind: 'loading' }
@@ -13,80 +14,12 @@ type Reading =
   | { kind: 'failed'; id: string }
   | { kind: 'ready'; message: DevelopmentInboxEntry }
 
-function safeMailHtml(html: string): ReactNode {
-  const document = new DOMParser().parseFromString(html, 'text/html')
-  const allowed = new Set([
-    'p',
-    'br',
-    'a',
-    'strong',
-    'em',
-    'b',
-    'i',
-    'span',
-    'div',
-    'ul',
-    'ol',
-    'li',
-    'h1',
-    'h2',
-    'h3',
-    'blockquote',
-    'table',
-    'tbody',
-    'tr',
-    'td',
-    'th',
-  ])
-  function render(node: Node, key: number): ReactNode {
-    if (node.nodeType === Node.TEXT_NODE) return node.textContent
-    if (!(node instanceof Element)) return null
-    const tag = node.tagName.toLowerCase()
-    if (
-      [
-        'script',
-        'style',
-        'iframe',
-        'object',
-        'embed',
-        'svg',
-        'math',
-        'form',
-        'input',
-        'button',
-      ].includes(tag)
-    )
-      return null
-    const children = Array.from(node.childNodes).map(render)
-    if (!allowed.has(tag)) return children
-    if (tag === 'br') return createElement('br', { key })
-    const href = node.getAttribute('href')
-    if (tag === 'a') {
-      let safe: string | undefined
-      if (href) {
-        try {
-          const url = new URL(href, window.location.href)
-          if (url.protocol === 'http:' || url.protocol === 'https:') safe = url.href
-        } catch (error) {
-          if (!(error instanceof TypeError)) throw error
-          safe = undefined
-        }
-      }
-      return createElement(
-        'a',
-        { key, href: safe, rel: 'noreferrer', className: 'underline underline-offset-4' },
-        children,
-      )
-    }
-    return createElement(tag, { key }, children)
-  }
-  return Array.from(document.body.childNodes).map(render)
-}
-
 export function DevelopmentInbox() {
   const { auth } = useAuth()
   const [listing, setListing] = useState<Messages>({ kind: 'loading' })
   const [reading, setReading] = useState<Reading>({ kind: 'none' })
+  const html = reading.kind === 'ready' ? reading.message.mail.html : undefined
+  const renderedHtml = useMemo(() => (html ? renderMailHtml(html) : null), [html])
   const openSequence = useRef(0)
   const list = useCallback(async () => {
     const result = await auth.api.inbox.list()
@@ -212,7 +145,7 @@ export function DevelopmentInbox() {
               </dl>
               <div className="space-y-4 leading-relaxed">
                 {reading.message.mail.html ? (
-                  safeMailHtml(reading.message.mail.html)
+                  renderedHtml
                 ) : (
                   <p className="whitespace-pre-wrap">{reading.message.mail.text}</p>
                 )}

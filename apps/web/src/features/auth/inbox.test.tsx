@@ -198,3 +198,28 @@ describe('Development inbox display, without delivery or authentication proof', 
     expect(screen.getByText('Select a message', { exact: true })).toBeTruthy()
   }, 15_000)
 })
+
+it.each([
+  ['<script>bad()</script><p>Safe</p>', '<p>Safe</p>'],
+  ['<style>bad</style><iframe>bad</iframe><p>Safe</p>', '<p>Safe</p>'],
+  ['<custom-tag><strong>Safe</strong></custom-tag>', '<strong>Safe</strong>'],
+  ['<p onclick="bad()" style="color:red"><em>Safe</em></p>', '<p><em>Safe</em></p>'],
+  [
+    '<a href="javascript:bad()">Safe</a>',
+    '<a rel="noreferrer" class="underline underline-offset-4">Safe</a>',
+  ],
+  [
+    '<a href="data:text/html,bad">Safe</a>',
+    '<a rel="noreferrer" class="underline underline-offset-4">Safe</a>',
+  ],
+])('filters captured mail HTML %s', async (html, expected) => {
+  const entry = { ...newest, mail: { ...newest.mail, html } }
+  const http = displayHttp({
+    'GET /api/development-inbox/messages': () => ok([entry]),
+    'POST /api/development-inbox/messages/display-newest/open': () => ok(entry),
+  })
+  const { user } = await mountAuth('/development-inbox', http)
+  await user.click(await screen.findByRole('button', { name: /alex@example.test/i }))
+  const pane = await screen.findByRole('region', { name: 'Reading pane' })
+  await waitFor(() => expect(pane.querySelector('.leading-relaxed')?.innerHTML).toBe(expected))
+})
