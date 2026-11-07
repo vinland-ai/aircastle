@@ -1,139 +1,54 @@
 import { redirect } from '@tanstack/react-router'
 import type { RouteAccess, RouteParams } from './access'
-import type { AuthDestination, ProtectedDestination } from '@aircastle/contracts'
-import {
-  createAuthHttp,
-  destinationPath,
-  type AuthBrowserOptions,
-  type BrowserSession,
-  type HttpResult,
-} from './http'
-
-export type Confirmation = {
-  purpose: 'setup' | 'sign-in'
-  token: string
-  preview: HttpResult<{ email: string; purpose: 'setup' | 'sign-in' }>
-}
-type InstanceState =
-  | { kind: 'setup-required' | 'signed-out' | 'disabled' }
-  | { kind: 'authenticated'; session: BrowserSession }
-
-export type AuthView =
-  | { kind: 'public' }
-  | { kind: 'authenticated'; session: BrowserSession }
-  | { kind: 'disabled' }
-  | { kind: 'failure' }
+import { decideHop, type AuthView, type Entered, type Handoff, type Memory } from './guard'
+import { createAuthHttp, type AuthBrowserOptions } from './http'
 
 export function createBrowserAuth(options: AuthBrowserOptions = {}) {
   const request = createAuthHttp(options)
-  let requested: ProtectedDestination | undefined
-  let confirmation: Confirmation | undefined
-  let handoff:
-    | { path: string; state: InstanceState }
-    | { path: string; view: Extract<AuthView, { kind: 'authenticated' }> }
-    | undefined
-  const go = (path: string): never => {
-    throw redirect({ href: path, replace: true })
-  }
-  const signedOut = (): never => {
-    handoff = { path: '/sign-in', state: { kind: 'signed-out' } }
-    return go('/sign-in')
-  }
+  let memory: Memory = { requested: undefined, confirmation: undefined }
+  let handoff: Handoff | undefined
   return {
     request,
     get returnTo() {
-      return requested
+      return memory.requested
     },
     get confirmation() {
-      return confirmation
+      return memory.confirmation
     },
     clearConfirmation() {
-      confirmation = undefined
+      memory = { ...memory, confirmation: undefined }
     },
     settle() {
       handoff = undefined
     },
     async entry(body: object) {
-      return request<{ destination: AuthDestination; session: BrowserSession }>('/auth/entry', body)
+      return request<Entered>('/auth/entry', body)
     },
+    /**
+     * Runs one hop of a navigation. It takes the handoff left for this path, decides the hop, and
+     * commits the memory and next handoff only if no newer navigation aborted it.
+     */
     async enter(
       route: { access: RouteAccess; params: RouteParams },
       path: string,
       search: Record<string, unknown>,
       signal: AbortSignal,
     ): Promise<AuthView> {
-      const { access } = route
-      if (access.kind === 'public') return { kind: 'public' }
-      const purpose =
-        access.kind === 'setup' ? 'setup' : access.kind === 'sign-in' ? 'sign-in' : undefined
-      const token = typeof search.token === 'string' && search.token ? search.token : undefined
-      if (purpose && !token && confirmation?.purpose === purpose) return { kind: 'public' }
       const handed = handoff?.path === path ? handoff : undefined
       handoff = undefined
-      if (handed && 'view' in handed) return handed.view
-      const state: HttpResult<InstanceState> = handed
-        ? { kind: 'ok', value: handed.state }
-        : await request<InstanceState>('/auth/state', undefined, signal)
-      if (state.kind !== 'ok') return { kind: 'failure' }
-      if (state.value.kind === 'disabled') {
-        confirmation = undefined
-        return { kind: 'disabled' }
-      }
-      if (purpose && token) {
-        confirmation = {
-          purpose,
-          token,
-          preview: await request('/auth/confirm/preview', { purpose, token }, signal),
-        }
-        go(path)
-      }
-      confirmation = undefined
-      if (access.kind === 'inbox') {
-        if (state.value.kind === 'authenticated') await request('/auth/activity', {}, signal)
-        return { kind: 'public' }
-      }
-      const guard = access.kind === 'protected' ? access.guard(route.params) : undefined
-      if (state.value.kind !== 'authenticated') {
-        requested = guard?.kind === 'visit' ? guard.destination : requested
-        const target = state.value.kind === 'setup-required' ? '/setup' : '/sign-in'
-        if (path !== target) {
-          handoff = { path: target, state: state.value }
-          go(target)
-        }
-        return { kind: 'public' }
-      }
-      const authenticated = state.value
-      const toDashboard = (): never => {
-        handoff = { path: '/dash', state: authenticated }
-        return go('/dash')
-      }
-      if (!guard) return toDashboard()
-      if (guard.kind === 'session') {
-        const activity = await request<BrowserSession>('/auth/activity', {}, signal)
-        if (activity.kind === 'unauthenticated') signedOut()
-        if (activity.kind !== 'ok') return { kind: 'failure' }
-        return { kind: 'authenticated', session: activity.value }
-      }
-      const entry = await request<{ destination: AuthDestination; session: BrowserSession }>(
-        '/auth/entry',
-        guard.kind === 'resolve'
-          ? { kind: 'resolve' }
-          : { kind: 'visit', destination: guard.destination },
-        signal,
-      )
-      if (entry.kind === 'unauthenticated') signedOut()
-      if (entry.kind === 'forbidden') toDashboard()
-      if (entry.kind !== 'ok') return { kind: 'failure' }
-      const view = { kind: 'authenticated', session: entry.value.session } as const
-      if (guard.kind === 'resolve') {
-        requested = undefined
-        const next = destinationPath(entry.value.destination)
-        handoff = { path: next, view }
-        return go(next)
-      }
-      const checked = destinationPath(guard.destination)
-      if (checked !== path) handoff = { path: checked, view }
-      return view
+      const token = typeof search.token === 'string' && search.token ? search.token : undefined
+      const hop = await decideHop({ ...route, path, token }, memory, handed, {
+        state: () => request('/auth/state', undefined, signal),
+        preview: (purpose, value) =>
+          request('/auth/confirm/preview', { purpose, token: value }, signal),
+        activity: () => request('/auth/activity', {}, signal),
+        entry: (body) => request('/auth/entry', body, signal),
+      })
+      if (signal.aborted) return { kind: 'failure' }
+      memory = hop.memory
+      handoff = hop.handoff
+      if (hop.kind === 'redirect') throw redirect({ href: hop.to, replace: true })
+      return hop.view
     },
   }
 }

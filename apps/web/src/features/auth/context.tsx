@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react'
-import type { BrowserAuth, AuthView } from './browser'
+import type { BrowserAuth } from './browser'
+import type { AuthView } from './guard'
 
 export const AuthContext = createContext<{ auth: BrowserAuth; view: AuthView } | null>(null)
 

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { useAuth } from './context'
-import type { Confirmation } from './browser'
+import type { Confirmation } from './guard'
 import type { AuthDestination } from '@aircastle/contracts'
 import { destinationPath, type HttpResult } from './http'
 

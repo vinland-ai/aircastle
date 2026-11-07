@@ -45,7 +45,6 @@ export function createAuthHttp(options: AuthBrowserOptions) {
             }),
       })
       const result: HttpResult<Value> = await response.json()
-      if (signal?.aborted) return { kind: 'temporary-failure' }
       return response.ok && result.kind === 'ok'
         ? result
         : result.kind === 'ok'
