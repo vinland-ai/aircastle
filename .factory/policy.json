@@ -107,7 +107,8 @@
           "compose.yaml",
           "apps/web/playwright.config.ts",
           "packages/*/stryker.config.json",
-          "scripts/**"
+          "scripts/**",
+          "**/scripts/**"
         ]
       }
     }

@@ -51,7 +51,7 @@ Put each rule at the highest layer that can express it.
 | `vp run check` and CI run the same package scripts, counting scripts that `check` reaches through other scripts, with no narrowing arguments, `continue-on-error` or step conditions other than `!cancelled() && steps.<id>.outcome == 'success'` | `tests/harness/ci-parity.test.ts` | Add a `vp run` step to `ci.yml` that `check` lacks, or remove one that `check` needs, then `vp test tests/harness/ci-parity.test.ts` |
 | The required `Lint, typecheck and test` gate needs every check job, runs with `always()` and fails unless all succeeded | `tests/harness/ci-parity.test.ts` | Drop a job from the gate's `needs`, then `vp test tests/harness/ci-parity.test.ts` |
 
-| Factory JSON, tracked unit coverage, root check recipes, CI gate and owner paths agree; committed rulesets require the policy check | `tests/harness/factory-policy.test.ts` | Break each contract in turn, run `vp test tests/harness/factory-policy.test.ts`, record exit 1, then restore it |
+| Factory JSON, tracked unit coverage, root check recipes, CI gate and owner paths agree; shared inputs invalidate consumers, scripts require security review, and split rulesets enforce strict protection | `tests/harness/factory-policy.test.ts` | Break each contract in turn, run `vp test tests/harness/factory-policy.test.ts`, record exit 1, then restore it |
 
 If a check blocks you, fix the code. Change the check only when it is wrong, and say why in the PR.
 

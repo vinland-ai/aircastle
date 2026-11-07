@@ -8,23 +8,21 @@ interface Unit {
   id: string;
   globs: string[];
   shared_inputs?: string[];
+  depends_on: string[];
 }
 
 interface HoldRule {
   kind: string;
+  security_lens?: boolean;
   detector?: { paths: string[] } | null;
 }
 
 interface Policy {
+  branch: string;
   required_checks: string[];
   commands: { check: string[] };
   logins: { owner: string };
   holds: HoldRule[];
-}
-
-interface Rule {
-  type: string;
-  parameters?: { required_status_checks?: { context: string }[] };
 }
 
 const root = resolve(import.meta.dirname, "../..");
@@ -128,20 +126,92 @@ test("the owner-reviewed paths are exactly the CODEOWNERS entries", () => {
   expect(detected).toContain(".factory/**");
 });
 
-test("every ruleset parses and requires exactly the policy's checks", () => {
+test("executable scripts require the security lens", () => {
+  const scripts = trackedFiles.filter(
+    (path) => path.split("/").includes("scripts") && /\.[cm]?[jt]s$/.test(path),
+  );
+  expect(scripts.length).toBeGreaterThan(0);
+  const detectors = policy.holds
+    .filter((hold) => hold.security_lens)
+    .flatMap((hold) => hold.detector?.paths ?? []);
+  const covered = new Set(engineMatches(detectors, scripts).flat());
+  expect(scripts.filter((path) => !covered.has(path))).toEqual([]);
+});
+
+test("shared inputs and consumer edges invalidate affected units", () => {
+  const cases: [string, string[]][] = [
+    ["AGENTS.md", units.map((unit) => unit.id)],
+    ["compose.yaml", ["scripts", "adapter-postgres", "repo-tests"]],
+    [
+      "apps/web/vite.config.ts",
+      units.filter((unit) => unit.id.startsWith("web-")).map((unit) => unit.id),
+    ],
+    ["apps/web/src/theme.ts", ["web-error-recovery"]],
+    ["apps/api/vite.config.ts", ["api-health", "api-content"]],
+    ["packages/cli/src/index.ts", ["repo-tests"]],
+    ["apps/api/src/app.ts", ["repo-tests"]],
+  ];
+  for (const [path, expected] of cases) {
+    const affected = new Set(
+      units
+        .filter((unit) => engineMatches(unitGlobs(unit), [path]).flat().length > 0)
+        .map((unit) => unit.id),
+    );
+    for (let previous = -1; previous !== affected.size;) {
+      previous = affected.size;
+      for (const unit of units)
+        if (unit.depends_on.some((id) => affected.has(id))) affected.add(unit.id);
+    }
+    expect(
+      expected.filter((id) => !affected.has(id)),
+      path,
+    ).toEqual([]);
+  }
+});
+
+test("rulesets enforce strict protection and separate owner-reviewed pull requests", () => {
   const files = readdirSync(resolve(root, ".github/rulesets")).filter((name) =>
     name.endsWith(".json"),
   );
-  const requiring = files.flatMap((name) => {
-    const { rules }: { rules: Rule[] } = JSON.parse(readText(`.github/rulesets/${name}`));
-    return rules
-      .filter((rule) => rule.type === "required_status_checks")
-      .map((rule) => ({
-        name,
-        contexts: (rule.parameters?.required_status_checks ?? []).map((check) => check.context),
-      }));
+  expect(files.sort()).toEqual(["main-protection.json", "main-pull-requests.json"]);
+  const common = {
+    target: "branch",
+    enforcement: "active",
+    conditions: { ref_name: { include: [`refs/heads/${policy.branch}`], exclude: [] } },
+  };
+  expect(JSON.parse(readText(".github/rulesets/main-protection.json"))).toEqual({
+    ...common,
+    name: `${policy.branch}-protection`,
+    bypass_actors: [],
+    rules: [
+      { type: "deletion" },
+      { type: "non_fast_forward" },
+      {
+        type: "required_status_checks",
+        parameters: {
+          strict_required_status_checks_policy: true,
+          do_not_enforce_on_create: false,
+          required_status_checks: policy.required_checks.map((context) => ({ context })),
+        },
+      },
+    ],
   });
-  expect(requiring.length).toBeGreaterThan(0);
-  for (const { name, contexts } of requiring)
-    expect(contexts, name).toEqual(policy.required_checks);
+  expect(JSON.parse(readText(".github/rulesets/main-pull-requests.json"))).toEqual({
+    ...common,
+    name: `${policy.branch}-pull-requests`,
+    bypass_actors: [{ actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "pull_request" }],
+    rules: [
+      {
+        type: "pull_request",
+        parameters: {
+          allowed_merge_methods: ["squash"],
+          require_code_owner_review: true,
+          dismiss_stale_reviews_on_push: true,
+          required_approving_review_count: 0,
+          require_last_push_approval: false,
+          required_review_thread_resolution: false,
+        },
+      },
+    ],
+  });
 });

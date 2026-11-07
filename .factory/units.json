@@ -12,7 +12,9 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
       "depends_on": []
     },
@@ -28,7 +30,9 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
       "depends_on": ["schema"]
     },
@@ -44,7 +48,9 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
       "depends_on": ["contracts", "schema"]
     },
@@ -60,7 +66,9 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
       "depends_on": ["contracts", "core"]
     },
@@ -76,7 +84,9 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
       "depends_on": ["contracts", "schema"]
     },
@@ -92,7 +102,9 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
       "depends_on": ["client", "contracts", "schema"]
     },
@@ -108,7 +120,11 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/api/*",
+        "apps/api/src/*"
       ],
       "depends_on": ["adapter-postgres", "contracts", "core"]
     },
@@ -124,7 +140,11 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/api/*",
+        "apps/api/src/*"
       ],
       "depends_on": ["adapter-postgres", "contracts", "core"]
     },
@@ -140,7 +160,11 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/api/*",
+        "apps/api/src/*"
       ],
       "depends_on": ["api-health", "api-content", "adapter-postgres", "contracts", "core"]
     },
@@ -161,7 +185,11 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/web/*",
+        "apps/web/src/*"
       ],
       "depends_on": []
     },
@@ -177,7 +205,11 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/web/*",
+        "apps/web/src/*"
       ],
       "depends_on": ["web-ui", "web-navigation"]
     },
@@ -193,7 +225,11 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/web/*",
+        "apps/web/src/*"
       ],
       "depends_on": ["web-ui"]
     },
@@ -209,7 +245,11 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/web/*",
+        "apps/web/src/*"
       ],
       "depends_on": ["web-ui"]
     },
@@ -225,7 +265,11 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/web/*",
+        "apps/web/src/*"
       ],
       "depends_on": ["web-ui"]
     },
@@ -241,7 +285,11 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/web/*",
+        "apps/web/src/*"
       ],
       "depends_on": ["web-ui"]
     },
@@ -257,7 +305,11 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/web/*",
+        "apps/web/src/*"
       ],
       "depends_on": [
         "web-ui",
@@ -280,7 +332,11 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/web/*",
+        "apps/web/src/*"
       ],
       "depends_on": ["web-app", "web-shell", "web-navigation"]
     },
@@ -296,7 +352,9 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
       "depends_on": ["adapter-postgres", "client", "contracts", "core", "schema"]
     },
@@ -312,9 +370,20 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
-      "depends_on": ["adapter-postgres", "client", "contracts", "core", "schema", "scripts"]
+      "depends_on": [
+        "adapter-postgres",
+        "client",
+        "contracts",
+        "core",
+        "schema",
+        "scripts",
+        "cli",
+        "api-app"
+      ]
     },
     {
       "id": "workspace",
@@ -342,7 +411,9 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
       "depends_on": []
     },
@@ -358,7 +429,9 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
       "depends_on": []
     },
@@ -383,7 +456,9 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
       "depends_on": []
     },
@@ -399,7 +474,9 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
       "depends_on": []
     },
@@ -415,7 +492,9 @@
         ".bun-version",
         ".node-version",
         "vite.content.config.ts",
-        "vite.db.config.ts"
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml"
       ],
       "depends_on": []
     }
