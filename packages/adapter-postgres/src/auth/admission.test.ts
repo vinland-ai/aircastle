@@ -389,6 +389,23 @@ describe("durable auth request admission", () => {
     });
   });
 
+  test("an email rejection waits for an outer window that its own charge filled", async () => {
+    await withAdmission(async ({ open, at }) => {
+      const admission = await open({
+        ...generous,
+        email: { fiveMinutes: 1, oneHour: 100 },
+        ip: { fiveMinutes: 100, oneHour: 2 },
+      });
+      expect(await admission.admit(request)).toEqual({ kind: "admitted" });
+      at(1_000);
+      expect(await admission.admit(request)).toEqual({
+        kind: "throttled",
+        retryAt: start + 3_600_000,
+        scopes: ["email"],
+      });
+    });
+  });
+
   test("an active namespace refuses different limits and accepts matching peers", async () => {
     await withAdmission(async ({ open }) => {
       const first = await open();
