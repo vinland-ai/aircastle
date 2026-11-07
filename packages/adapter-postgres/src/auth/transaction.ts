@@ -41,6 +41,36 @@ function sessionRecord(row: SessionRow | undefined): AuthSessionRecord | null {
     : null;
 }
 
+/** Serializes link issuance, replacement and redemption for one email until the transaction ends. */
+async function lockEmail(sql: postgres.TransactionSql, namespace: string, email: string) {
+  await sql`SELECT pg_advisory_xact_lock(${lockId(sql, namespace, "auth-email", email)})`;
+}
+
+/**
+ * Waits on the email lock, so an issuing transaction has finished, then reports whether its
+ * durable issuance marker committed.
+ */
+export async function resolveIssuance(
+  sql: postgres.TransactionSql,
+  namespace: string,
+  issuance: { messageId: string; email: string },
+): Promise<"committed" | "not-committed"> {
+  await lockEmail(sql, namespace, issuance.email);
+  const [row] = await sql<
+    { exists: boolean }[]
+  >`SELECT EXISTS (SELECT FROM ${identifier(sql, namespace, "auth_issuances")} WHERE message_id = ${issuance.messageId} AND email = ${issuance.email}) AS exists`;
+  return row?.exists ? "committed" : "not-committed";
+}
+
+/** The namespace's persistent signing material, which initialization creates once. */
+export async function signingSecret(sql: postgres.Sql, namespace: string): Promise<string> {
+  const [row] = await sql<
+    { signing_secret: string }[]
+  >`SELECT signing_secret FROM ${identifier(sql, namespace, "auth_settings")} WHERE singleton = 1`;
+  if (!row) throw new AuthStorageError("unavailable");
+  return row.signing_secret;
+}
+
 export function authTransaction(sql: postgres.TransactionSql, namespace: string): AuthTransaction {
   const table = (name: string) => identifier(sql, namespace, name);
   const userColumns = () =>
@@ -49,9 +79,6 @@ export function authTransaction(sql: postgres.TransactionSql, namespace: string)
     sql`id, user_id AS "userId", token_digest AS "tokenDigest", expires_at AS "expiresAt", created_at AS "createdAt", updated_at AS "updatedAt"`;
   const linkColumns = () =>
     sql`digest, message_id AS "messageId", email, identity, issued_at AS "issuedAt", expires_at AS "expiresAt", status, return_to AS "returnTo"`;
-  const lockEmail = async (email: string) => {
-    await sql`SELECT pg_advisory_xact_lock(${lockId(sql, namespace, "auth-email", email)})`;
-  };
   const setupState = async (lock: "locked" | "unlocked") => {
     const [row] = await sql<
       { setup_user_id: string | null }[]
@@ -67,7 +94,7 @@ export function authTransaction(sql: postgres.TransactionSql, namespace: string)
         await sql`UPDATE ${table("auth_settings")} SET setup_user_id = ${userId} WHERE singleton = 1 AND setup_user_id IS NULL AND EXISTS (SELECT FROM ${table("auth_users")} WHERE id = ${userId}) RETURNING singleton`;
       if (rows.length !== 1) throw new AuthStorageError("unavailable");
     },
-    lockEmail,
+    lockEmail: (email) => lockEmail(sql, namespace, email),
     link: async (digest) => {
       const [row] = await sql<
         LinkRow[]
@@ -77,7 +104,7 @@ export function authTransaction(sql: postgres.TransactionSql, namespace: string)
         : null;
     },
     replaceLink: async (record) => {
-      await lockEmail(record.email);
+      await lockEmail(sql, namespace, record.email);
       await sql`UPDATE ${table("auth_links")} SET status = 'superseded' WHERE email = ${record.email} AND status = 'active'`;
       await sql`INSERT INTO ${table("auth_links")} (digest, message_id, email, identity, issued_at, expires_at, status, return_to) VALUES (${record.digest}, ${record.messageId}, ${record.email}, ${sql.json(record.identity)}::jsonb, ${new Date(record.issuedAt)}, ${new Date(record.expiresAt)}, ${record.status}, ${record.returnTo === null ? null : sql.json(record.returnTo)}::jsonb)`;
       await sql`INSERT INTO ${table("auth_issuances")} (message_id, email) VALUES (${record.messageId}, ${record.email})`;
@@ -87,7 +114,7 @@ export function authTransaction(sql: postgres.TransactionSql, namespace: string)
         { email: string }[]
       >`SELECT email FROM ${table("auth_links")} WHERE digest = ${digest}`;
       if (!row) return false;
-      await lockEmail(row.email);
+      await lockEmail(sql, namespace, row.email);
       const rows =
         await sql`UPDATE ${table("auth_links")} SET status = 'consumed' WHERE digest = ${digest} AND status = 'active' RETURNING digest`;
       return rows.length === 1;

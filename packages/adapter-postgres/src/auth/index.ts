@@ -3,10 +3,9 @@ import { AuthStorageError } from "@aircastle/core";
 import type { AuthStore } from "@aircastle/core";
 import { connectionTarget } from "../config.ts";
 import type { PostgresOptions } from "../config.ts";
-import { identifier } from "../identifier.ts";
 import { initializeAuthLayout } from "./layout.ts";
 import { storageFailure } from "./failure.ts";
-import { authTransaction } from "./transaction.ts";
+import { authTransaction, resolveIssuance, signingSecret } from "./transaction.ts";
 
 export async function postgresAuthStore(options: PostgresOptions): Promise<AuthStore> {
   const { url, namespace } = connectionTarget(options);
@@ -17,17 +16,14 @@ export async function postgresAuthStore(options: PostgresOptions): Promise<AuthS
     await sql.end({ timeout: 0 });
     throw error;
   }
-  const table = (name: string) => identifier(sql, namespace, name);
   let closing: Promise<void> | undefined;
   const pending = new Set<Promise<unknown>>();
-  function track<Value>(operation: () => Promise<Value>): Promise<Value> {
+  function run<Value>(operation: () => Promise<Value>): Promise<Value> {
+    if (closing) return Promise.reject(new AuthStorageError("unavailable"));
     const result = Promise.resolve().then(operation);
     pending.add(result);
     void Promise.allSettled([result]).then(() => pending.delete(result));
     return result;
-  }
-  function run<Value>(operation: () => Promise<Value>): Promise<Value> {
-    return closing ? Promise.reject(new AuthStorageError("unavailable")) : track(operation);
   }
   async function transaction<Value>(
     operation: (sql: postgres.TransactionSql) => Promise<Value>,
@@ -50,25 +46,13 @@ export async function postgresAuthStore(options: PostgresOptions): Promise<AuthS
     signingSecret: () =>
       run(async () => {
         try {
-          const [row] = await sql<
-            { signing_secret: string }[]
-          >`SELECT signing_secret FROM ${table("auth_settings")} WHERE singleton = 1`;
-          if (!row) throw new AuthStorageError("unavailable");
-          return row.signing_secret;
+          return await signingSecret(sql, namespace);
         } catch (error) {
           throw storageFailure(error);
         }
       }),
-    resolveIssuance: ({ messageId, email }) =>
-      run(() =>
-        transaction(async (sql) => {
-          await authTransaction(sql, namespace).lockEmail(email);
-          const [row] = await sql<
-            { exists: boolean }[]
-          >`SELECT EXISTS (SELECT FROM ${table("auth_issuances")} WHERE message_id = ${messageId} AND email = ${email}) AS exists`;
-          return row?.exists ? "committed" : "not-committed";
-        }),
-      ),
+    resolveIssuance: (issuance) =>
+      run(() => transaction((sql) => resolveIssuance(sql, namespace, issuance))),
     close: () =>
       (closing ??= (async () => {
         while (pending.size) await Promise.allSettled(pending);
