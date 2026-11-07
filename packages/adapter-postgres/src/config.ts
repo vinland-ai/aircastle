@@ -51,6 +51,18 @@ export function readPostgresOptions(env: Record<string, string | undefined>): Po
       );
     return { url, ...namespace };
   }
+  if (env.AIRCASTLE_ENV !== "development") {
+    const required = [
+      "AIRCASTLE_DB_HOST",
+      "AIRCASTLE_DB_PORT",
+      "AIRCASTLE_DB_NAME",
+      "AIRCASTLE_DB_USER",
+      "AIRCASTLE_DB_PASSWORD",
+    ];
+    const missing = required.find((name) => env[name] === undefined);
+    if (missing)
+      throw new Error(`Set AIRCASTLE_DATABASE_URL or explicit ${missing} outside development`);
+  }
   const rawPort = env.AIRCASTLE_DB_PORT ?? "43123";
   const port = Number(rawPort);
   if (!/^\d+$/.test(rawPort) || !Number.isInteger(port) || port < 1 || port > 65535)
