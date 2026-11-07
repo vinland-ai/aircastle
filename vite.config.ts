@@ -106,6 +106,7 @@ export default defineConfig({
           "apps/api/src/features/auth/**",
           "apps/api/src/features/development-inbox/**",
           "packages/adapter-postgres/src/auth/**",
+          "packages/core/src/admission.ts",
           "packages/core/src/auth*.{ts,tsx}",
           "packages/core/src/auth*/**",
           "packages/contracts/src/auth*.{ts,tsx}",
