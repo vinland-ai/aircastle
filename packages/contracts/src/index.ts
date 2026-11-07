@@ -15,7 +15,16 @@ import {
 import { decodeCollections, decodeDescription } from "./decode.ts";
 
 export { authEmail, authSetupInput, authSignInInput, protectedDestination } from "./auth.ts";
-export type { AuthDestination, ProtectedDestination } from "./auth.ts";
+export type {
+  AuthDestination,
+  AuthFailure,
+  AuthSession,
+  AuthState,
+  DevelopmentInboxEntry,
+  EmailMessage,
+  LinkPreview,
+  ProtectedDestination,
+} from "./auth.ts";
 export type { CollectionDescription, CollectionDefinitions } from "@aircastle/schema";
 export type DocumentData = Record<string, JsonValue>;
 export type ContentDocument = DocumentData & { id: string };

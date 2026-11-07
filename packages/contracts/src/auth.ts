@@ -45,3 +45,53 @@ export type AuthDestination =
   | ProtectedDestination
   | { kind: "dashboard" }
   | { kind: "create-workspace" };
+
+/** A signed-in browser's session as the server reports it. The token stays in the cookie. */
+export interface AuthSession {
+  user: { id: string; name: string; email: string; authority: "super_user" };
+  expiresAt: number;
+}
+
+/** The instance state that `/auth/state` reports to a browser. */
+export type AuthState =
+  | { kind: "setup-required" | "signed-out" | "disabled" }
+  | { kind: "authenticated"; session: AuthSession };
+
+/** The account a confirmation link would act for, shown before the browser confirms it. */
+export interface LinkPreview {
+  email: string;
+  purpose: "setup" | "sign-in";
+}
+
+/** Every failure an auth or inbox route answers with, as the browser receives it. */
+export type AuthFailure =
+  | {
+      kind:
+        | "not-found"
+        | "unauthenticated"
+        | "forbidden"
+        | "email-not-allowed"
+        | "setup-complete"
+        | "setup-required"
+        | "temporary-failure";
+    }
+  | { kind: "invalid-input"; fields?: Record<string, string> }
+  | { kind: "invalid-link" | "superseded-link"; next: "setup" | "sign-in" }
+  | { kind: "throttled"; retryAt: number };
+
+/** An email the development inbox captured instead of sending. */
+export interface EmailMessage {
+  readonly messageId: string;
+  readonly date: string;
+  readonly from: string;
+  readonly to: readonly string[];
+  readonly subject: string;
+  readonly html?: string;
+  readonly text: string;
+}
+
+/** A captured email and whether anyone has opened it. */
+export interface DevelopmentInboxEntry {
+  readonly mail: EmailMessage;
+  readonly read: boolean;
+}
