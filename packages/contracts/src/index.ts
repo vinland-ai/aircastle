@@ -12,7 +12,7 @@ import {
   type ValidationIssue,
   type ReceivedType,
 } from "@aircastle/schema";
-import { collectionName, decodeCollections, decodeDescription, fieldName } from "./decode.ts";
+import { decodeCollections, decodeDescription } from "./decode.ts";
 
 export type { CollectionDescription, CollectionDefinitions } from "@aircastle/schema";
 export type DocumentData = Record<string, JsonValue>;
@@ -194,12 +194,12 @@ function names(value: unknown): string[] | undefined {
 
 export function describeCollections(definitions: CollectionDefinitions): PublishedCollection[] {
   const compiled = compileSchema(definitions);
-  return Object.entries(compiled).map(([name, definition]) => {
-    const description = definition.describe();
-    if (!collectionName(name) || !Object.keys(description.fields).every(fieldName))
-      throw new TypeError("Invalid collection description");
-    return { name, description };
-  });
+  const published = Object.entries(compiled).map(([name, definition]) => ({
+    name,
+    description: definition.describe(),
+  }));
+  if (!decodeCollections(published).ok) throw new TypeError("Invalid collection description");
+  return published;
 }
 
 export function parseCollections(input: unknown): Result<PublishedCollection[]> {

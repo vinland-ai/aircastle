@@ -75,11 +75,11 @@ function knownKeys(value: Record<string, unknown>, allowed: ReadonlySet<string>)
   return Object.keys(value).every((key) => allowed.has(key));
 }
 
-export function collectionName(value: unknown): value is string {
+function collectionName(value: unknown): value is string {
   return typeof value === "string" && identifier.test(value) && !reservedCollections.has(value);
 }
 
-export function fieldName(value: string): boolean {
+function fieldName(value: string): boolean {
   return identifier.test(value) && value !== "id";
 }
 
