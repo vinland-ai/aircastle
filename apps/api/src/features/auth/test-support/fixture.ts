@@ -7,7 +7,7 @@ import {
   postgresAuthAdmission,
   postgresAuthStore,
 } from "@aircastle/adapter-postgres";
-import { AuthStorageError, createAircastle } from "@aircastle/core";
+import { createAircastle } from "@aircastle/core";
 import type { AuthLimits, AuthStore, ProtectedDestination } from "@aircastle/core";
 import { expect } from "vite-plus/test";
 import { cmsErrorReporter, createApp } from "../../../app.ts";
@@ -30,8 +30,10 @@ export async function withAuth(
     limits?: AuthLimits;
     logger?: Logger;
     maxRequestBytes?: number;
+    /** Wraps each runtime's store, for tests that observe or fault storage. */
     storage?: (store: AuthStore) => AuthStore;
-    onPrepare?: (mail: EmailMessage) => void;
+    /** Wraps each runtime's inbox, for tests that observe or fault message capture. */
+    inbox?: (inbox: DevelopmentInbox) => DevelopmentInbox;
     browserOrigin?: string;
   } = {},
 ) {
@@ -44,14 +46,10 @@ export async function withAuth(
   const runtimes: LocalAuthRuntime[] = [];
   const stores: AuthStore[] = [];
   let now = start;
-  let captureFails = false;
-  let storageFault: "none" | "session" | "replacement" | "commit" | "ack" = "none";
   const events: AuthEvent[] = [];
   const logs: string[] = [];
-  const prepared: EmailMessage[] = [];
   const logger = options.logger ?? pino({ level: "info" }, { write: (line) => logs.push(line) });
   const logAuthEvent = createAuthEventLogger(logger);
-  let nextIssuanceCommit: (() => void) | undefined;
   try {
     const cms = await createAircastle({ database: content, report: cmsErrorReporter(logger) });
     expect((await sql`SELECT 1 AS connected`)[0]?.connected).toBe(1);
@@ -65,43 +63,6 @@ export async function withAuth(
         clock: () => now,
       });
       const inbox = createDevelopmentInbox();
-      const delivery: DevelopmentInbox = {
-        list: () => inbox.list(),
-        open: (id) => inbox.open(id),
-        prepare: async (mail) => {
-          options.onPrepare?.(mail);
-          if (captureFails) throw new Error("test capture preparation failure");
-          const publication = await inbox.prepare(mail);
-          prepared.push(mail);
-          return publication;
-        },
-      };
-      const faulted: AuthStore = {
-        ...storage,
-        transaction: async (work) => {
-          const result = await storage.transaction(async (transaction) => {
-            const value = await work({
-              ...transaction,
-              insertSession: async (record) => {
-                const saved = await transaction.insertSession(record);
-                if (storageFault === "session") throw new AuthStorageError("unavailable");
-                return saved;
-              },
-              replaceLink: async (record) => {
-                await transaction.replaceLink(record);
-                if (storageFault === "replacement") throw new AuthStorageError("unavailable");
-                const hook = nextIssuanceCommit;
-                nextIssuanceCommit = undefined;
-                hook?.();
-              },
-            });
-            if (storageFault === "commit") throw new AuthStorageError("unavailable");
-            return value;
-          });
-          if (storageFault === "ack") throw new AuthStorageError("commit-unknown");
-          return result;
-        },
-      };
       const auth = await createLocalAuth({
         config: {
           mode: "development",
@@ -109,10 +70,10 @@ export async function withAuth(
           limits: options.limits ?? limits,
           ...(initialEmail === undefined ? {} : { initialEmail }),
         },
-        storage: options.storage?.(faulted) ?? faulted,
+        storage: options.storage?.(storage) ?? storage,
         admission,
         clock: () => now,
-        inbox: delivery,
+        inbox: options.inbox?.(inbox) ?? inbox,
         emit: (event) => {
           events.push(event);
           logAuthEvent(event);
@@ -167,18 +128,8 @@ export async function withAuth(
       open,
       events,
       logs,
-      prepared,
       at: (milliseconds) => {
         now = start + milliseconds;
-      },
-      captureFailure: (enabled) => {
-        captureFails = enabled;
-      },
-      nextIssuanceCommit: (hook) => {
-        nextIssuanceCommit = hook;
-      },
-      storageFailure: (fault) => {
-        storageFault = fault;
       },
     });
   } finally {
@@ -216,11 +167,7 @@ export interface AuthFixture {
   }>;
   events: AuthEvent[];
   logs: string[];
-  prepared: EmailMessage[];
   at: (milliseconds: number) => void;
-  captureFailure: (enabled: boolean) => void;
-  storageFailure: (fault: "none" | "session" | "replacement" | "commit" | "ack") => void;
-  nextIssuanceCommit: (hook: () => void) => void;
 }
 
 export type AuthServer = Awaited<ReturnType<AuthFixture["open"]>>;

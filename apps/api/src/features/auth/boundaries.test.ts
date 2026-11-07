@@ -4,6 +4,7 @@ import type { AuthLimits } from "@aircastle/core";
 import { createApp } from "../../app.ts";
 import { createLocalAuth } from "./index.ts";
 import { dispatched } from "./dispatch.ts";
+import { captureFaults } from "./test-support/faults.ts";
 import { browserOrigin, claim, issueSetupLink, start, withAuth } from "./test-support/fixture.ts";
 
 const defaults: AuthLimits = {
@@ -230,19 +231,20 @@ describe("local auth HTTP boundaries", () => {
   });
 
   test("failed capture spends its admitted slot and records a delivery failure", async () => {
+    const capture = captureFaults();
     await withAuth(
-      async ({ open, captureFailure, events }) => {
+      async ({ open, events }) => {
         const server = await open();
-        captureFailure(true);
+        capture.fail(true);
         const failure = await server.request("/auth/setup", setup);
         expect(failure.status).toBe(503);
         expect(await failure.json()).toEqual({ kind: "temporary-failure" });
         expect(events).toContainEqual({ kind: "delivery-failed" });
-        captureFailure(false);
+        capture.fail(false);
         expect((await server.request("/auth/setup", setup)).status).toBe(429);
         expect(server.inbox.list()).toEqual([]);
       },
-      { limits: { ...generous, email: { fiveMinutes: 1, oneHour: 1 } } },
+      { limits: { ...generous, email: { fiveMinutes: 1, oneHour: 1 } }, inbox: capture.wrap },
     );
   });
 

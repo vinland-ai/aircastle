@@ -1,94 +1,116 @@
 import { expect, test } from "vite-plus/test";
+import { captureFaults, storageFaults } from "./test-support/faults.ts";
 import { claim, issueSetupLink, withAuth } from "./test-support/fixture.ts";
 
 test("capture preparation failure preserves the previous link and publishes no replacement", async () => {
-  await withAuth(async ({ open, captureFailure }) => {
-    const server = await open();
-    const old = await issueSetupLink(server);
-    const before = server.inbox.list();
-    captureFailure(true);
-    const failed = await server.request("/auth/setup", {
-      name: "Replacement",
-      email: "alex@example.test",
-    });
-    expect(failed.status).toBe(503);
-    expect(await failed.json()).toEqual({ kind: "temporary-failure" });
-    expect(server.inbox.list()).toEqual(before);
-    captureFailure(false);
-    expect(
-      (await server.request("/auth/confirm", { purpose: "setup", token: old.token })).status,
-    ).toBe(200);
-  });
+  const capture = captureFaults();
+  await withAuth(
+    async ({ open }) => {
+      const server = await open();
+      const old = await issueSetupLink(server);
+      const before = server.inbox.list();
+      capture.fail(true);
+      const failed = await server.request("/auth/setup", {
+        name: "Replacement",
+        email: "alex@example.test",
+      });
+      expect(failed.status).toBe(503);
+      expect(await failed.json()).toEqual({ kind: "temporary-failure" });
+      expect(server.inbox.list()).toEqual(before);
+      capture.fail(false);
+      expect(
+        (await server.request("/auth/confirm", { purpose: "setup", token: old.token })).status,
+      ).toBe(200);
+    },
+    { inbox: capture.wrap },
+  );
 });
 
 for (const fault of ["replacement", "commit"] as const) {
   test(`${fault} rollback preserves the previous active link and aborts capture`, async () => {
-    await withAuth(async ({ open, storageFailure }) => {
-      const server = await open();
-      const old = await issueSetupLink(server);
-      const before = server.inbox.list();
-      storageFailure(fault);
-      const response = await server.request("/auth/setup", {
-        name: "Replacement",
-        email: "alex@example.test",
-      });
-      expect(response.status).toBe(503);
-      expect(await response.json()).toEqual({ kind: "temporary-failure" });
-      expect(server.inbox.list()).toEqual(before);
-      storageFailure("none");
-      expect(
-        (await server.request("/auth/confirm", { purpose: "setup", token: old.token })).status,
-      ).toBe(200);
-    });
+    const faults = storageFaults();
+    await withAuth(
+      async ({ open }) => {
+        const server = await open();
+        const old = await issueSetupLink(server);
+        const before = server.inbox.list();
+        faults.inject(fault);
+        const response = await server.request("/auth/setup", {
+          name: "Replacement",
+          email: "alex@example.test",
+        });
+        expect(response.status).toBe(503);
+        expect(await response.json()).toEqual({ kind: "temporary-failure" });
+        expect(server.inbox.list()).toEqual(before);
+        faults.inject("none");
+        expect(
+          (await server.request("/auth/confirm", { purpose: "setup", token: old.token })).status,
+        ).toBe(200);
+      },
+      { storage: faults.wrap },
+    );
   });
 }
 
 test("session-write failure rolls back the setup user, marker and token consumption together", async () => {
-  await withAuth(async ({ open, storageFailure }) => {
-    const server = await open();
-    const link = await issueSetupLink(server);
-    storageFailure("session");
-    const response = await server.request("/auth/confirm", { purpose: "setup", token: link.token });
-    expect(response.status).toBe(503);
-    expect(response.headers.get("set-cookie")).toBeNull();
-    storageFailure("none");
-    expect(
-      await server.storage.transaction((tx) => tx.userByEmail("alex@example.test")),
-    ).toBeNull();
-    expect(await server.storage.transaction((tx) => tx.lockSetupClaim())).toBe("open");
-    const other = await open();
-    expect(await other.storage.transaction((tx) => tx.userByEmail("alex@example.test"))).toBeNull();
-    expect(
-      (await other.request("/auth/confirm", { purpose: "setup", token: link.token })).status,
-    ).toBe(200);
-  });
+  const faults = storageFaults();
+  await withAuth(
+    async ({ open }) => {
+      const server = await open();
+      const link = await issueSetupLink(server);
+      faults.inject("session");
+      const response = await server.request("/auth/confirm", {
+        purpose: "setup",
+        token: link.token,
+      });
+      expect(response.status).toBe(503);
+      expect(response.headers.get("set-cookie")).toBeNull();
+      faults.inject("none");
+      expect(
+        await server.storage.transaction((tx) => tx.userByEmail("alex@example.test")),
+      ).toBeNull();
+      expect(await server.storage.transaction((tx) => tx.lockSetupClaim())).toBe("open");
+      const other = await open();
+      expect(
+        await other.storage.transaction((tx) => tx.userByEmail("alex@example.test")),
+      ).toBeNull();
+      expect(
+        (await other.request("/auth/confirm", { purpose: "setup", token: link.token })).status,
+      ).toBe(200);
+    },
+    { storage: faults.wrap },
+  );
 });
 
 test("unknown commit acknowledgment resolves the durable issuance before publishing", async () => {
-  await withAuth(async ({ open, storageFailure }) => {
-    const server = await open();
-    const old = await issueSetupLink(server);
-    storageFailure("ack");
-    const response = await server.request("/auth/setup", {
-      name: "Replacement",
-      email: "alex@example.test",
-    });
-    storageFailure("none");
-    expect(response.status).toBe(200);
-    expect(server.inbox.list()).toHaveLength(2);
-    const latest = server.inbox.list()[0]?.mail;
-    expect(latest).toBeDefined();
-    if (!latest) throw new Error("Committed replacement must publish");
-    expect(
-      await server.storage.resolveIssuance({
-        messageId: latest.messageId,
+  const faults = storageFaults();
+  await withAuth(
+    async ({ open }) => {
+      const server = await open();
+      const old = await issueSetupLink(server);
+      faults.inject("ack");
+      const response = await server.request("/auth/setup", {
+        name: "Replacement",
         email: "alex@example.test",
-      }),
-    ).toBe("committed");
-    const replay = await server.request("/auth/confirm", { purpose: "setup", token: old.token });
-    expect(replay.status).toBe(400);
-    expect(await replay.json()).toEqual({ kind: "superseded-link", next: "setup" });
-  });
+      });
+      faults.inject("none");
+      expect(response.status).toBe(200);
+      expect(server.inbox.list()).toHaveLength(2);
+      const latest = server.inbox.list()[0]?.mail;
+      expect(latest).toBeDefined();
+      if (!latest) throw new Error("Committed replacement must publish");
+      expect(
+        await server.storage.resolveIssuance({
+          messageId: latest.messageId,
+          email: "alex@example.test",
+        }),
+      ).toBe("committed");
+      const replay = await server.request("/auth/confirm", { purpose: "setup", token: old.token });
+      expect(replay.status).toBe(400);
+      expect(await replay.json()).toEqual({ kind: "superseded-link", next: "setup" });
+    },
+    { storage: faults.wrap },
+  );
 });
 
 test("discarding a successful response retains the inbox replacement and its durable marker", async () => {
@@ -112,14 +134,18 @@ test("discarding a successful response retains the inbox replacement and its dur
 });
 
 test("healthy control still completes setup after a recovered capture fault", async () => {
-  await withAuth(async ({ open, captureFailure }) => {
-    const server = await open();
-    captureFailure(true);
-    expect(
-      (await server.request("/auth/setup", { name: "Alex", email: "alex@example.test" })).status,
-    ).toBe(503);
-    captureFailure(false);
-    const { cookie } = await claim(server);
-    expect((await server.request("/auth/session", undefined, cookie)).status).toBe(200);
-  });
+  const capture = captureFaults();
+  await withAuth(
+    async ({ open }) => {
+      const server = await open();
+      capture.fail(true);
+      expect(
+        (await server.request("/auth/setup", { name: "Alex", email: "alex@example.test" })).status,
+      ).toBe(503);
+      capture.fail(false);
+      const { cookie } = await claim(server);
+      expect((await server.request("/auth/session", undefined, cookie)).status).toBe(200);
+    },
+    { inbox: capture.wrap },
+  );
 });

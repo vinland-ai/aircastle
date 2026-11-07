@@ -64,7 +64,13 @@ for (const scope of ["ip", "global"] as const) {
       {
         limits: { ...limits, [scope]: { fiveMinutes: 2, oneHour: 2 } },
         storage: observe,
-        onPrepare: (mail) => captured.push(...mail.to),
+        inbox: (inbox) => ({
+          ...inbox,
+          prepare: (mail) => {
+            captured.push(...mail.to);
+            return inbox.prepare(mail);
+          },
+        }),
       },
     );
   });

@@ -3,6 +3,7 @@ import { AuthStorageError } from "@aircastle/core";
 import { expect, test } from "vite-plus/test";
 import { createAuthEventLogger } from "./index.ts";
 import type { AuthEvent } from "./index.ts";
+import { captureFaults, storageFaults } from "./test-support/faults.ts";
 import { claim, limits, withAuth } from "./test-support/fixture.ts";
 
 function applicationSink() {
@@ -57,8 +58,9 @@ test("the application event emitter writes structured failed sign-in, blocked sc
 
 test("real HTTP failures emit unknown-identity, invalid-credential and capture diagnostics through the application sink", async () => {
   const sink = applicationSink();
+  const capture = captureFaults();
   await withAuth(
-    async ({ open, captureFailure }) => {
+    async ({ open }) => {
       const server = await open();
       const session = await claim(server);
       const unknown = await server.request("/auth/sign-in", { email: "unknown@example.test" });
@@ -70,12 +72,12 @@ test("real HTTP failures emit unknown-identity, invalid-credential and capture d
       });
       expect(replay.status).toBe(400);
       expect(sink.auth()).toContainEqual({ kind: "sign-in-failed", reason: "invalid-link" });
-      captureFailure(true);
+      capture.fail(true);
       const failed = await server.request("/auth/sign-in", { email: "alex@example.test" });
       expect(failed.status).toBe(503);
       expect(sink.auth()).toContainEqual({ kind: "delivery-failed" });
     },
-    { logger: sink.logger },
+    { logger: sink.logger, inbox: capture.wrap },
   );
 });
 
@@ -159,8 +161,9 @@ test("invalid-credential floods remain bounded in the positive application sink"
 
 test("a positive application diagnostic sink excludes actual link, session, signing and email-body canaries", async () => {
   const sink = applicationSink();
+  const capture = captureFaults();
   await withAuth(
-    async ({ open, sql, namespace, captureFailure }) => {
+    async ({ open, sql, namespace }) => {
       const server = await open();
       const session = await claim(server);
       const signingSecret = await server.storage.signingSecret();
@@ -177,7 +180,7 @@ test("a positive application diagnostic sink excludes actual link, session, sign
       );
       expect(replay.status).toBe(400);
       expect(sink.auth()).toContainEqual({ kind: "sign-in-failed", reason: "invalid-link" });
-      captureFailure(true);
+      capture.fail(true);
       expect((await server.request("/auth/sign-in", { email: "alex@example.test" })).status).toBe(
         503,
       );
@@ -199,7 +202,7 @@ test("a positive application diagnostic sink excludes actual link, session, sign
         for (const field of output) expect(field).not.toContain(credential);
       }
     },
-    { logger: sink.logger },
+    { logger: sink.logger, inbox: capture.wrap },
   );
 });
 
@@ -283,10 +286,11 @@ test("a storage outage event carries the driver code and never the driver messag
 test("a bug while resolving an unknown commit is logged as a summary and not retried as an outage", async () => {
   const sink = applicationSink();
   let lookups = 0;
+  const faults = storageFaults();
   await withAuth(
-    async ({ open, events, storageFailure }) => {
+    async ({ open, events }) => {
       const server = await open();
-      storageFailure("ack");
+      faults.inject("ack");
       const response = await server.request("/auth/setup", {
         name: "Alex",
         email: "alex@example.test",
@@ -305,7 +309,7 @@ test("a bug while resolving an unknown commit is logged as a summary and not ret
     {
       logger: sink.logger,
       storage: (store) => ({
-        ...store,
+        ...faults.wrap(store),
         resolveIssuance: async () => {
           lookups += 1;
           throw new TypeError("bug-canary");
@@ -318,10 +322,11 @@ test("a bug while resolving an unknown commit is logged as a summary and not ret
 test("a bug in background issuance reconciliation drops the capture and logs a summary once", async () => {
   const sink = applicationSink();
   let lookups = 0;
+  const faults = storageFaults();
   await withAuth(
-    async ({ open, events, storageFailure }) => {
+    async ({ open, events }) => {
       const server = await open();
-      storageFailure("ack");
+      faults.inject("ack");
       const response = await server.request("/auth/setup", {
         name: "Alex",
         email: "alex@example.test",
@@ -343,7 +348,7 @@ test("a bug in background issuance reconciliation drops the capture and logs a s
     {
       logger: sink.logger,
       storage: (store) => ({
-        ...store,
+        ...faults.wrap(store),
         resolveIssuance: async () => {
           lookups += 1;
           if (lookups === 1) throw new AuthStorageError("unavailable");

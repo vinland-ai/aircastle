@@ -1,7 +1,50 @@
 import { expect, test } from "vite-plus/test";
 import postgres from "postgres";
+import type { AuthStore } from "@aircastle/core";
+import type { DevelopmentInbox, EmailMessage } from "../development-inbox/index.ts";
 import { issueSetupLink, withAuth } from "./test-support/fixture.ts";
 import { deadline, postgresWire, waitForBlock } from "./test-support/postgres-wire.ts";
+
+/** Runs a hook once, right after the next link replacement writes and before its transaction commits. */
+function afterNextReplacement() {
+  let hook: (() => void) | undefined;
+  return {
+    arm: (next: () => void) => {
+      hook = next;
+    },
+    wrap: (store: AuthStore): AuthStore => ({
+      ...store,
+      transaction: (work) =>
+        store.transaction((transaction) =>
+          work({
+            ...transaction,
+            replaceLink: async (record) => {
+              await transaction.replaceLink(record);
+              const run = hook;
+              hook = undefined;
+              run?.();
+            },
+          }),
+        ),
+    }),
+  };
+}
+
+/** Records each message the inbox prepared, in order. */
+function preparedMessages() {
+  const prepared: EmailMessage[] = [];
+  return {
+    prepared,
+    wrap: (inbox: DevelopmentInbox): DevelopmentInbox => ({
+      ...inbox,
+      prepare: async (mail) => {
+        const publication = await inbox.prepare(mail);
+        prepared.push(mail);
+        return publication;
+      },
+    }),
+  };
+}
 
 test("wire control notifies a waiter registered before the fault is armed", async () => {
   await withAuth(async ({ url }) => {
@@ -110,95 +153,106 @@ for (const mode of ["before-commit", "after-commit"] as const) {
   }
 
   test(`application ${mode} transport loss coordinates inbox publication with locked marker resolution`, async () => {
-    await withAuth(async ({ open, url, sql, prepared, nextIssuanceCommit }) => {
-      const wire = await postgresWire(url);
-      let requesting: Promise<Response> | undefined;
-      let resolving: Promise<"committed" | "not-committed"> | undefined;
-      try {
-        const server = await open(undefined, wire.url);
-        const old = await issueSetupLink(server);
-        nextIssuanceCommit(() => wire.arm(mode));
-        requesting = server.request("/auth/setup", {
-          name: "Replacement",
-          email: "alex@example.test",
-        });
-        const pid = await wire.held();
-        expect(server.inbox.list()).toHaveLength(1);
-        const message = prepared[prepared.length - 1];
-        expect(message?.messageId).not.toBe(old.message.messageId);
-        if (!message)
-          throw new Error("Issuance must reserve its complete message before committing");
-        resolving = server.storage.resolveIssuance({
-          messageId: message.messageId,
-          email: "alex@example.test",
-        });
-        expect(await waitForBlock(sql, pid)).toBeGreaterThan(0);
-        wire.release();
-        expect(await deadline(resolving, "Issuance resolution never completed")).toBe(
-          mode === "after-commit" ? "committed" : "not-committed",
-        );
-        const response = await deadline(requesting, "Request never resolved its commit outcome");
-        expect(response.status).toBe(mode === "after-commit" ? 200 : 503);
-        expect(server.inbox.list()).toHaveLength(mode === "after-commit" ? 2 : 1);
-        if (mode === "after-commit") {
-          await issueSetupLink(server);
-          expect(
-            await server.storage.resolveIssuance({
-              messageId: message.messageId,
-              email: "alex@example.test",
-            }),
-          ).toBe("committed");
-          expect(
-            (await server.request("/auth/confirm", { purpose: "setup", token: old.token })).status,
-          ).toBe(400);
-        } else {
-          expect(
-            (await server.request("/auth/confirm", { purpose: "setup", token: old.token })).status,
-          ).toBe(200);
+    const nextReplacement = afterNextReplacement();
+    const capture = preparedMessages();
+    await withAuth(
+      async ({ open, url, sql }) => {
+        const wire = await postgresWire(url);
+        let requesting: Promise<Response> | undefined;
+        let resolving: Promise<"committed" | "not-committed"> | undefined;
+        try {
+          const server = await open(undefined, wire.url);
+          const old = await issueSetupLink(server);
+          nextReplacement.arm(() => wire.arm(mode));
+          requesting = server.request("/auth/setup", {
+            name: "Replacement",
+            email: "alex@example.test",
+          });
+          const pid = await wire.held();
+          expect(server.inbox.list()).toHaveLength(1);
+          const message = capture.prepared[capture.prepared.length - 1];
+          expect(message?.messageId).not.toBe(old.message.messageId);
+          if (!message)
+            throw new Error("Issuance must reserve its complete message before committing");
+          resolving = server.storage.resolveIssuance({
+            messageId: message.messageId,
+            email: "alex@example.test",
+          });
+          expect(await waitForBlock(sql, pid)).toBeGreaterThan(0);
+          wire.release();
+          expect(await deadline(resolving, "Issuance resolution never completed")).toBe(
+            mode === "after-commit" ? "committed" : "not-committed",
+          );
+          const response = await deadline(requesting, "Request never resolved its commit outcome");
+          expect(response.status).toBe(mode === "after-commit" ? 200 : 503);
+          expect(server.inbox.list()).toHaveLength(mode === "after-commit" ? 2 : 1);
+          if (mode === "after-commit") {
+            await issueSetupLink(server);
+            expect(
+              await server.storage.resolveIssuance({
+                messageId: message.messageId,
+                email: "alex@example.test",
+              }),
+            ).toBe("committed");
+            expect(
+              (await server.request("/auth/confirm", { purpose: "setup", token: old.token }))
+                .status,
+            ).toBe(400);
+          } else {
+            expect(
+              (await server.request("/auth/confirm", { purpose: "setup", token: old.token }))
+                .status,
+            ).toBe(200);
+          }
+        } finally {
+          await wire.close();
+          await Promise.allSettled([requesting, resolving]);
         }
-      } finally {
-        await wire.close();
-        await Promise.allSettled([requesting, resolving]);
-      }
-    });
+      },
+      { storage: nextReplacement.wrap, inbox: capture.wrap },
+    );
   });
 }
 
 test("token expiry is rechecked after a demonstrable same-email database lock wait", async () => {
-  await withAuth(async ({ open, url, sql, at, nextIssuanceCommit }) => {
-    const wire = await postgresWire(url);
-    let replacement: Promise<Response> | undefined;
-    let confirming: Promise<Response> | undefined;
-    try {
-      const server = await open(undefined, wire.url);
-      const old = await issueSetupLink(server);
-      nextIssuanceCommit(() => wire.arm("after-commit"));
-      replacement = server.request("/auth/setup", {
-        name: "Replacement",
-        email: "alex@example.test",
-      });
-      const pid = await wire.held();
-      at(299_999);
-      confirming = server.request("/auth/confirm", {
-        purpose: "setup",
-        token: old.token,
-      });
-      expect(await waitForBlock(sql, pid)).toBeGreaterThan(0);
-      at(300_000);
-      wire.release();
-      expect((await deadline(replacement, "Replacement did not resolve")).status).toBe(200);
-      const response = await deadline(
-        confirming,
-        "Confirmation did not resolve after lock release",
-      );
-      expect(response.status).toBe(400);
-      expect(await response.json()).toEqual({ kind: "invalid-link", next: "setup" });
-      expect(
-        await server.storage.transaction((tx) => tx.userByEmail("alex@example.test")),
-      ).toBeNull();
-    } finally {
-      await wire.close();
-      await Promise.allSettled([replacement, confirming]);
-    }
-  });
+  const nextReplacement = afterNextReplacement();
+  await withAuth(
+    async ({ open, url, sql, at }) => {
+      const wire = await postgresWire(url);
+      let replacement: Promise<Response> | undefined;
+      let confirming: Promise<Response> | undefined;
+      try {
+        const server = await open(undefined, wire.url);
+        const old = await issueSetupLink(server);
+        nextReplacement.arm(() => wire.arm("after-commit"));
+        replacement = server.request("/auth/setup", {
+          name: "Replacement",
+          email: "alex@example.test",
+        });
+        const pid = await wire.held();
+        at(299_999);
+        confirming = server.request("/auth/confirm", {
+          purpose: "setup",
+          token: old.token,
+        });
+        expect(await waitForBlock(sql, pid)).toBeGreaterThan(0);
+        at(300_000);
+        wire.release();
+        expect((await deadline(replacement, "Replacement did not resolve")).status).toBe(200);
+        const response = await deadline(
+          confirming,
+          "Confirmation did not resolve after lock release",
+        );
+        expect(response.status).toBe(400);
+        expect(await response.json()).toEqual({ kind: "invalid-link", next: "setup" });
+        expect(
+          await server.storage.transaction((tx) => tx.userByEmail("alex@example.test")),
+        ).toBeNull();
+      } finally {
+        await wire.close();
+        await Promise.allSettled([replacement, confirming]);
+      }
+    },
+    { storage: nextReplacement.wrap },
+  );
 });
