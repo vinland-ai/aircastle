@@ -65,7 +65,6 @@ export type {
   AuthEntryRecord,
   AuthTransaction,
   AuthStore,
-  AuthEvent,
 } from "./auth.ts";
 
 export interface ProjectTransaction {

@@ -1,27 +1,10 @@
 import { AuthStorageError } from "@aircastle/core";
-import type { AuthEvent } from "@aircastle/core";
 import { createDevelopmentInbox } from "../development-inbox/index.ts";
-import { createCredentials, storageUnavailable } from "./credentials.ts";
+import { createCredentials } from "./credentials.ts";
+import { boundedEvents, storageUnavailable } from "./diagnostics.ts";
 import { createSessions, sessionCookie, sessionProjection } from "./sessions.ts";
 import { authResponse, jsonBody, ok, parseAccount, parseLink } from "./request.ts";
 import type { LocalAuthOptions, LocalAuthRuntime } from "./index.ts";
-
-export function boundedEvents(emit: (event: AuthEvent) => void, clock: () => number) {
-  const seen = new Map<string, number>();
-  let window = clock();
-  return (event: AuthEvent) => {
-    const now = clock();
-    if (now - window >= 60_000 || now < window) {
-      seen.clear();
-      window = now;
-    }
-    const key = JSON.stringify(event);
-    const count = seen.get(key) ?? 0;
-    if (count >= 5) return;
-    seen.set(key, count + 1);
-    emit(event);
-  };
-}
 
 const openMessageRoute = "/api/development-inbox/messages/:id/open";
 

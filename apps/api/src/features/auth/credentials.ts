@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { AuthStorageError, ErrorSummary } from "@aircastle/core";
 import type {
-  AuthEvent,
   AuthLinkRecord,
   AuthStore,
   AuthTransaction,
@@ -13,6 +12,8 @@ import type {
   DevelopmentInboxPublication,
   EmailMessage,
 } from "../development-inbox/index.ts";
+import { storageUnavailable } from "./diagnostics.ts";
+import type { AuthEvent } from "./diagnostics.ts";
 import type { AccountInput, LinkInput } from "./request.ts";
 import { startSession } from "./sessions.ts";
 import { digest, newToken } from "./token.ts";
@@ -20,12 +21,6 @@ import { digest, newToken } from "./token.ts";
 type LinkFailure =
   | { kind: "invalid-link" | "superseded-link"; next: "setup" | "sign-in" }
   | { kind: "setup-complete" };
-
-/** The diagnostic event for a storage failure, carrying only its driver code. */
-export const storageUnavailable = (error: AuthStorageError): AuthEvent => ({
-  kind: "storage-unavailable",
-  ...(error.code === undefined ? {} : { code: error.code }),
-});
 
 const escapeHtml = (text: string) =>
   text.replace(

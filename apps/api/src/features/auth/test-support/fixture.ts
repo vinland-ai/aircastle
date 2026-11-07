@@ -8,13 +8,13 @@ import {
   postgresAuthStore,
 } from "@aircastle/adapter-postgres";
 import { AuthStorageError, createAircastle } from "@aircastle/core";
-import type { AuthEvent, AuthLimits, AuthStore } from "@aircastle/core";
+import type { AuthLimits, AuthStore } from "@aircastle/core";
 import { expect } from "vite-plus/test";
 import { cmsErrorReporter, createApp } from "../../../app.ts";
 import { createDevelopmentInbox } from "../../development-inbox/index.ts";
 import type { DevelopmentInbox, EmailMessage } from "../../development-inbox/index.ts";
 import { authErrorReporter, createAuthEventLogger, createLocalAuth } from "../index.ts";
-import type { LocalAuthRuntime } from "../index.ts";
+import type { AuthEvent, LocalAuthRuntime } from "../index.ts";
 
 export const start = Date.UTC(2026, 0, 1);
 export const browserOrigin = "http://localhost:43121";

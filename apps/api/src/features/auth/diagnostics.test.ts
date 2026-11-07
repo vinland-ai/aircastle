@@ -1,8 +1,8 @@
 import pino from "pino";
 import { AuthStorageError } from "@aircastle/core";
-import type { AuthEvent } from "@aircastle/core";
 import { expect, test } from "vite-plus/test";
 import { createAuthEventLogger } from "./index.ts";
+import type { AuthEvent } from "./index.ts";
 import { claim, limits, withAuth } from "./test-support/fixture.ts";
 
 function applicationSink() {
