@@ -72,13 +72,19 @@ export async function signingSecret(sql: postgres.Sql, namespace: string): Promi
 }
 
 export function authTransaction(sql: postgres.TransactionSql, namespace: string): AuthTransaction {
+  return {
+    ...setupOperations(sql, namespace),
+    ...linkOperations(sql, namespace),
+    ...userOperations(sql, namespace),
+    ...sessionOperations(sql, namespace),
+  };
+}
+
+function setupOperations(
+  sql: postgres.TransactionSql,
+  namespace: string,
+): Pick<AuthTransaction, "setupState" | "lockSetupClaim" | "completeSetup"> {
   const table = (name: string) => identifier(sql, namespace, name);
-  const userColumns = () =>
-    sql`id, name, email, created_at AS "createdAt", updated_at AS "updatedAt"`;
-  const sessionColumns = () =>
-    sql`id, user_id AS "userId", token_digest AS "tokenDigest", expires_at AS "expiresAt", created_at AS "createdAt", updated_at AS "updatedAt"`;
-  const linkColumns = () =>
-    sql`digest, message_id AS "messageId", email, identity, issued_at AS "issuedAt", expires_at AS "expiresAt", status, return_to AS "returnTo"`;
   const setupState = async (lock: "locked" | "unlocked") => {
     const [row] = await sql<
       { setup_user_id: string | null }[]
@@ -94,6 +100,17 @@ export function authTransaction(sql: postgres.TransactionSql, namespace: string)
         await sql`UPDATE ${table("auth_settings")} SET setup_user_id = ${userId} WHERE singleton = 1 AND setup_user_id IS NULL AND EXISTS (SELECT FROM ${table("auth_users")} WHERE id = ${userId}) RETURNING singleton`;
       if (rows.length !== 1) throw new AuthStorageError("unavailable");
     },
+  };
+}
+
+function linkOperations(
+  sql: postgres.TransactionSql,
+  namespace: string,
+): Pick<AuthTransaction, "lockEmail" | "link" | "replaceLink" | "consumeLink"> {
+  const table = (name: string) => identifier(sql, namespace, name);
+  const linkColumns = () =>
+    sql`digest, message_id AS "messageId", email, identity, issued_at AS "issuedAt", expires_at AS "expiresAt", status, return_to AS "returnTo"`;
+  return {
     lockEmail: (email) => lockEmail(sql, namespace, email),
     link: async (digest) => {
       const [row] = await sql<
@@ -119,6 +136,20 @@ export function authTransaction(sql: postgres.TransactionSql, namespace: string)
         await sql`UPDATE ${table("auth_links")} SET status = 'consumed' WHERE digest = ${digest} AND status = 'active' RETURNING digest`;
       return rows.length === 1;
     },
+  };
+}
+
+function userOperations(
+  sql: postgres.TransactionSql,
+  namespace: string,
+): Pick<
+  AuthTransaction,
+  "userById" | "userByEmail" | "insertUser" | "authority" | "entry" | "saveEntry" | "authorize"
+> {
+  const table = (name: string) => identifier(sql, namespace, name);
+  const userColumns = () =>
+    sql`id, name, email, created_at AS "createdAt", updated_at AS "updatedAt"`;
+  return {
     userById: async (id) => {
       const [row] = await sql<
         UserRow[]
@@ -134,31 +165,6 @@ export function authTransaction(sql: postgres.TransactionSql, namespace: string)
     insertUser: async (user) => {
       await sql`INSERT INTO ${table("auth_users")} (id, name, email, created_at, updated_at) VALUES (${user.id}, ${user.name}, ${user.email}, ${new Date(user.createdAt)}, ${new Date(user.updatedAt)})`;
       return user;
-    },
-    insertSession: async (session) => {
-      await sql`INSERT INTO ${table("auth_sessions")} (id, user_id, token_digest, expires_at, created_at, updated_at) VALUES (${session.id}, ${session.userId}, ${session.tokenDigest}, ${new Date(session.expiresAt)}, ${new Date(session.createdAt)}, ${new Date(session.updatedAt)})`;
-      return session;
-    },
-    session: async (tokenDigest) => {
-      const [row] = await sql<
-        SessionRow[]
-      >`SELECT ${sessionColumns()} FROM ${table("auth_sessions")} WHERE token_digest = ${tokenDigest}`;
-      return sessionRecord(row);
-    },
-    lockSession: async (tokenDigest) => {
-      const [row] = await sql<
-        SessionRow[]
-      >`SELECT ${sessionColumns()} FROM ${table("auth_sessions")} WHERE token_digest = ${tokenDigest} FOR UPDATE`;
-      return sessionRecord(row);
-    },
-    renewSession: async (tokenDigest, at, expiresAt) => {
-      const [row] = await sql<
-        SessionRow[]
-      >`UPDATE ${table("auth_sessions")} SET updated_at = ${new Date(at)}, expires_at = ${new Date(expiresAt)} WHERE token_digest = ${tokenDigest} AND expires_at > ${new Date(at)} RETURNING ${sessionColumns()}`;
-      return sessionRecord(row);
-    },
-    revokeSession: async (tokenDigest) => {
-      await sql`DELETE FROM ${table("auth_sessions")} WHERE token_digest = ${tokenDigest}`;
     },
     authority: async (userId) => {
       const [row] = await sql<
@@ -194,6 +200,45 @@ export function authTransaction(sql: postgres.TransactionSql, namespace: string)
         { exists: boolean }[]
       >`SELECT EXISTS (SELECT FROM ${table("projects")} WHERE id::text = ${destination.projectId} AND workspace_id::text = ${destination.workspaceId}) AS exists`;
       return project?.exists ?? false;
+    },
+  };
+}
+
+function sessionOperations(
+  sql: postgres.TransactionSql,
+  namespace: string,
+): Pick<
+  AuthTransaction,
+  "insertSession" | "session" | "lockSession" | "renewSession" | "revokeSession"
+> {
+  const table = (name: string) => identifier(sql, namespace, name);
+  const sessionColumns = () =>
+    sql`id, user_id AS "userId", token_digest AS "tokenDigest", expires_at AS "expiresAt", created_at AS "createdAt", updated_at AS "updatedAt"`;
+  return {
+    insertSession: async (session) => {
+      await sql`INSERT INTO ${table("auth_sessions")} (id, user_id, token_digest, expires_at, created_at, updated_at) VALUES (${session.id}, ${session.userId}, ${session.tokenDigest}, ${new Date(session.expiresAt)}, ${new Date(session.createdAt)}, ${new Date(session.updatedAt)})`;
+      return session;
+    },
+    session: async (tokenDigest) => {
+      const [row] = await sql<
+        SessionRow[]
+      >`SELECT ${sessionColumns()} FROM ${table("auth_sessions")} WHERE token_digest = ${tokenDigest}`;
+      return sessionRecord(row);
+    },
+    lockSession: async (tokenDigest) => {
+      const [row] = await sql<
+        SessionRow[]
+      >`SELECT ${sessionColumns()} FROM ${table("auth_sessions")} WHERE token_digest = ${tokenDigest} FOR UPDATE`;
+      return sessionRecord(row);
+    },
+    renewSession: async (tokenDigest, at, expiresAt) => {
+      const [row] = await sql<
+        SessionRow[]
+      >`UPDATE ${table("auth_sessions")} SET updated_at = ${new Date(at)}, expires_at = ${new Date(expiresAt)} WHERE token_digest = ${tokenDigest} AND expires_at > ${new Date(at)} RETURNING ${sessionColumns()}`;
+      return sessionRecord(row);
+    },
+    revokeSession: async (tokenDigest) => {
+      await sql`DELETE FROM ${table("auth_sessions")} WHERE token_digest = ${tokenDigest}`;
     },
   };
 }
