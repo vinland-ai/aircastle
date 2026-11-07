@@ -132,20 +132,12 @@ export function authTransaction(sql: postgres.TransactionSql, namespace: string)
       return userRecord(row);
     },
     insertUser: async (user) => {
-      const [row] = await sql<
-        UserRow[]
-      >`INSERT INTO ${table("auth_users")} (id, name, email, created_at, updated_at) VALUES (${user.id}, ${user.name}, ${user.email}, ${new Date(user.createdAt)}, ${new Date(user.updatedAt)}) RETURNING ${userColumns()}`;
-      const inserted = userRecord(row);
-      if (!inserted) throw new AuthStorageError("unavailable");
-      return inserted;
+      await sql`INSERT INTO ${table("auth_users")} (id, name, email, created_at, updated_at) VALUES (${user.id}, ${user.name}, ${user.email}, ${new Date(user.createdAt)}, ${new Date(user.updatedAt)})`;
+      return user;
     },
     insertSession: async (session) => {
-      const [row] = await sql<
-        SessionRow[]
-      >`INSERT INTO ${table("auth_sessions")} (id, user_id, token_digest, expires_at, created_at, updated_at) VALUES (${session.id}, ${session.userId}, ${session.tokenDigest}, ${new Date(session.expiresAt)}, ${new Date(session.createdAt)}, ${new Date(session.updatedAt)}) RETURNING ${sessionColumns()}`;
-      const inserted = sessionRecord(row);
-      if (!inserted) throw new AuthStorageError("unavailable");
-      return inserted;
+      await sql`INSERT INTO ${table("auth_sessions")} (id, user_id, token_digest, expires_at, created_at, updated_at) VALUES (${session.id}, ${session.userId}, ${session.tokenDigest}, ${new Date(session.expiresAt)}, ${new Date(session.createdAt)}, ${new Date(session.updatedAt)})`;
+      return session;
     },
     session: async (tokenDigest) => {
       const [row] = await sql<
