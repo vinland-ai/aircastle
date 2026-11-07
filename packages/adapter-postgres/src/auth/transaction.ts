@@ -8,6 +8,7 @@ import type {
 } from "@aircastle/core";
 import type postgres from "postgres";
 import { identifier } from "../identifier.ts";
+import { lockId } from "./lock.ts";
 
 type UserRow = Omit<AuthUserRecord, "createdAt" | "updatedAt"> & {
   createdAt: Date;
@@ -49,7 +50,7 @@ export function authTransaction(sql: postgres.TransactionSql, namespace: string)
   const linkColumns = () =>
     sql`digest, message_id AS "messageId", email, identity, issued_at AS "issuedAt", expires_at AS "expiresAt", status, return_to AS "returnTo"`;
   const lockEmail = async (email: string) => {
-    await sql`SELECT pg_advisory_xact_lock(hashtextextended(${JSON.stringify([namespace, "auth-email", email])}, 0))`;
+    await sql`SELECT pg_advisory_xact_lock(${lockId(sql, namespace, "auth-email", email)})`;
   };
   const setupState = async (lock: "locked" | "unlocked") => {
     const [row] = await sql<

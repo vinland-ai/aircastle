@@ -11,6 +11,7 @@ import { identifier } from "../identifier.ts";
 import { connectionTarget } from "../layout.ts";
 import { isDriverError, storageFailure } from "./failure.ts";
 import { initializeAuthLayout } from "./layout.ts";
+import { lockId } from "./lock.ts";
 
 const windows = [
   ["fiveMinutes", 300_000],
@@ -64,8 +65,6 @@ export async function postgresAuthAdmission(
   const policy = JSON.stringify(
     scopes.map((scope) => windows.map(([window]) => limits[scope][window])),
   );
-  const operationKey = JSON.stringify([namespace, "auth-admission"]);
-  const policyKey = JSON.stringify([namespace, "auth-admission-policy"]);
   const sql = postgres(url, {
     max: 1,
     prepare: false,
@@ -76,7 +75,7 @@ export async function postgresAuthAdmission(
   const table = (name: string) => identifier(sql, namespace, name);
   const clock = options.clock ?? Date.now;
   async function lockOperation(transaction: postgres.TransactionSql) {
-    await transaction`SELECT pg_advisory_xact_lock(hashtextextended(${operationKey}, 0))`;
+    await transaction`SELECT pg_advisory_xact_lock(${lockId(transaction, namespace, "auth-admission")})`;
   }
   async function matchesPolicy(transaction: postgres.TransactionSql) {
     const [row] = await transaction<
@@ -90,19 +89,19 @@ export async function postgresAuthAdmission(
         SELECT FROM pg_locks
         WHERE locktype = 'advisory' AND pid = pg_backend_pid() AND mode = 'ShareLock' AND granted
           AND objsubid = 1
-          AND ((classid::bigint << 32) | objid::bigint) = hashtextextended(${policyKey}, 0)
+          AND ((classid::bigint << 32) | objid::bigint) = ${lockId(transaction, namespace, "auth-admission-policy")}
       ) AS held`;
     return row?.held ?? false;
   }
   async function registerPolicy(transaction: postgres.TransactionSql) {
     const [lock] = await transaction<{ acquired: boolean }[]>`
-      SELECT pg_try_advisory_xact_lock(hashtextextended(${policyKey}, 0)) AS acquired`;
+      SELECT pg_try_advisory_xact_lock(${lockId(transaction, namespace, "auth-admission-policy")}) AS acquired`;
     if (lock?.acquired) {
       await transaction`INSERT INTO ${table("auth_admission_policy")} (singleton, policy) VALUES (1, ${policy}) ON CONFLICT (singleton) DO UPDATE SET policy = EXCLUDED.policy`;
     } else if (!(await matchesPolicy(transaction))) {
       return false;
     }
-    await transaction`SELECT pg_advisory_lock_shared(hashtextextended(${policyKey}, 0))`;
+    await transaction`SELECT pg_advisory_lock_shared(${lockId(transaction, namespace, "auth-admission-policy")})`;
     return true;
   }
   try {
