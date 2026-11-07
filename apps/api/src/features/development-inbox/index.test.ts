@@ -1,5 +1,6 @@
 import { expect, test } from "vite-plus/test";
-import { createDevelopmentInbox, type EmailMessage } from "./index.ts";
+import type { EmailMessage } from "@aircastle/contracts";
+import { createDevelopmentInbox } from "./index.ts";
 
 function email(overrides: Partial<EmailMessage> = {}): EmailMessage {
   return {

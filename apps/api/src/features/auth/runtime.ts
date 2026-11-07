@@ -1,3 +1,4 @@
+import type { LinkPreview } from "@aircastle/contracts";
 import { AuthStorageError } from "@aircastle/core";
 import type { AuthAdmissionStore, AuthLimits, AuthStore, ReportError } from "@aircastle/core";
 import type { DevelopmentInbox } from "../development-inbox/index.ts";
@@ -96,7 +97,7 @@ export async function developmentAuth(options: DevelopmentAuthOptions): Promise<
     "POST /api/auth/confirm/preview": async ({ request }) => {
       const result = await credentials.preview(parseLink(await jsonBody(request)));
       if (result.kind === "failure") return failed(result.failure);
-      return succeeded({ email: result.email, purpose: result.purpose });
+      return succeeded({ email: result.email, purpose: result.purpose } satisfies LinkPreview);
     },
     "POST /api/auth/sign-out": async ({ request }) => {
       await sessions.signOut(await cookie.read(request));

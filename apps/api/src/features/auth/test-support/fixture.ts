@@ -9,10 +9,11 @@ import {
 } from "@aircastle/adapter-postgres";
 import { createAircastle } from "@aircastle/core";
 import type { AuthLimits, AuthStore, ProtectedDestination } from "@aircastle/core";
+import type { EmailMessage } from "@aircastle/contracts";
 import { expect } from "vite-plus/test";
 import { cmsErrorReporter, createApp } from "../../../app.ts";
 import { createDevelopmentInbox } from "../../development-inbox/index.ts";
-import type { DevelopmentInbox, EmailMessage } from "../../development-inbox/index.ts";
+import type { DevelopmentInbox } from "../../development-inbox/index.ts";
 import { authErrorReporter, createAuthEventLogger, createLocalAuth } from "../index.ts";
 import type { AuthEvent, LocalAuthRuntime } from "../index.ts";
 

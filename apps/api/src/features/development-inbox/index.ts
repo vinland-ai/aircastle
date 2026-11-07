@@ -1,17 +1,4 @@
-export interface EmailMessage {
-  readonly messageId: string;
-  readonly date: string;
-  readonly from: string;
-  readonly to: readonly string[];
-  readonly subject: string;
-  readonly html?: string;
-  readonly text: string;
-}
-
-export interface DevelopmentInboxEntry {
-  readonly mail: EmailMessage;
-  readonly read: boolean;
-}
+import type { DevelopmentInboxEntry, EmailMessage } from "@aircastle/contracts";
 
 export interface DevelopmentInboxPublication {
   /** Publishes once, synchronously without throwing after durable link commit; repeated calls are harmless. */

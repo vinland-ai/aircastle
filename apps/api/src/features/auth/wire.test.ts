@@ -1,7 +1,8 @@
 import { expect, test } from "vite-plus/test";
 import postgres from "postgres";
 import type { AuthStore } from "@aircastle/core";
-import type { DevelopmentInbox, EmailMessage } from "../development-inbox/index.ts";
+import type { EmailMessage } from "@aircastle/contracts";
+import type { DevelopmentInbox } from "../development-inbox/index.ts";
 import { issueSetupLink, withAuth } from "./test-support/fixture.ts";
 import { deadline, postgresWire, waitForBlock } from "./test-support/postgres-wire.ts";
 

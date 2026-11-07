@@ -1,18 +1,4 @@
-/** Every failure an auth or inbox route answers with, as the browser receives it. */
-export type AuthFailure =
-  | {
-      kind:
-        | "not-found"
-        | "unauthenticated"
-        | "forbidden"
-        | "email-not-allowed"
-        | "setup-complete"
-        | "setup-required"
-        | "temporary-failure";
-    }
-  | { kind: "invalid-input"; fields?: Record<string, string> }
-  | { kind: "invalid-link" | "superseded-link"; next: "setup" | "sign-in" }
-  | { kind: "throttled"; retryAt: number };
+import type { AuthFailure } from "@aircastle/contracts";
 
 /** The status of each failure kind. A new kind does not compile until it has one. */
 const failureStatus = {

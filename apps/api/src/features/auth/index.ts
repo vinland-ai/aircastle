@@ -1,3 +1,4 @@
+import type { AuthState } from "@aircastle/contracts";
 import { developmentAuth } from "./runtime.ts";
 import type { DevelopmentAuthOptions, LocalAuthRuntime } from "./runtime.ts";
 import { failed, succeeded } from "./responses.ts";
@@ -16,7 +17,7 @@ export async function createLocalAuth(options: LocalAuthOptions): Promise<LocalA
       handle: async (request) => {
         const url = new URL(request.url);
         return request.method === "GET" && url.pathname === "/api/auth/state"
-          ? succeeded({ kind: "disabled" })
+          ? succeeded({ kind: "disabled" } satisfies AuthState)
           : failed({ kind: "not-found" });
       },
       close: async () => {},

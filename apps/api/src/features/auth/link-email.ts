@@ -1,5 +1,5 @@
 import type { AuthLinkRecord } from "@aircastle/core";
-import type { EmailMessage } from "../development-inbox/index.ts";
+import type { EmailMessage } from "@aircastle/contracts";
 
 /** How long an issued link stays redeemable, in milliseconds. */
 export const linkLifetime = 300_000;

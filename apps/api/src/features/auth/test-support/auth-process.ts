@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { fileURLToPath } from "node:url";
-import type { DevelopmentInboxEntry } from "../../development-inbox/index.ts";
+import type { DevelopmentInboxEntry } from "@aircastle/contracts";
 
 const repository = fileURLToPath(new URL("../../../../../../", import.meta.url));
 const runtimeConfig = fileURLToPath(

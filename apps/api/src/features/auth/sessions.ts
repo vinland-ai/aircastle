@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { generateCookie, generateSignedCookie } from "hono/cookie";
 import { parseSigned } from "hono/utils/cookie";
+import type { AuthSession, AuthState } from "@aircastle/contracts";
 import type {
   AuthSessionRecord,
   AuthStore,
@@ -20,9 +21,9 @@ export interface ActiveSession {
   session: AuthSessionRecord;
 }
 
-export function sessionProjection({ user, session }: ActiveSession) {
+export function sessionProjection({ user, session }: ActiveSession): AuthSession {
   return {
-    user: { id: user.id, name: user.name, email: user.email, authority: "super_user" as const },
+    user: { id: user.id, name: user.name, email: user.email, authority: "super_user" },
     expiresAt: session.expiresAt,
   };
 }
@@ -91,15 +92,10 @@ export function createSessions(storage: AuthStore, clock: () => number) {
   return {
     /** The instance state for `/auth/state`, read without locks or renewal. */
     state: (token: string | undefined) =>
-      storage.transaction(async (tx) => {
+      storage.transaction(async (tx): Promise<AuthState> => {
         const pair = await current(tx, token, "read");
-        if (pair) return { kind: "authenticated" as const, session: sessionProjection(pair) };
-        return {
-          kind:
-            (await tx.setupState()) === "open"
-              ? ("setup-required" as const)
-              : ("signed-out" as const),
-        };
+        if (pair) return { kind: "authenticated", session: sessionProjection(pair) };
+        return { kind: (await tx.setupState()) === "open" ? "setup-required" : "signed-out" };
       }),
     read: (token: string | undefined) => storage.transaction((tx) => current(tx, token, "read")),
     activity: (token: string | undefined) =>
