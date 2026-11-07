@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { AuthStorageError, ErrorSummary } from "@aircastle/core";
+import { AuthStorageError } from "@aircastle/core";
 import type {
   AuthLinkRecord,
   AuthStore,
@@ -9,6 +9,8 @@ import type {
 } from "@aircastle/core";
 import type { DevelopmentInbox, DevelopmentInboxPublication } from "../development-inbox/index.ts";
 import { storageUnavailable } from "./diagnostics.ts";
+import { createIssuanceRecovery } from "./issuance-recovery.ts";
+import type { PreparedLink } from "./issuance-recovery.ts";
 import { linkEmail, linkLifetime } from "./link-email.ts";
 import { eligibility, linkVerdict, lockSetupThenEmail, nextStep } from "./links.ts";
 import type { LinkVerdict } from "./links.ts";
@@ -26,49 +28,11 @@ export function createCredentials(options: {
   origin: string;
   initialEmail?: string;
 }) {
-  const pending = new Map<string, { email: string; publication: DevelopmentInboxPublication }>();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let closed = false;
-  let reconciling: Promise<void> | undefined;
-
-  async function resolve(messageId: string): Promise<"committed" | "not-committed"> {
-    const capture = pending.get(messageId);
-    if (!capture) throw new AuthStorageError("unavailable");
-    const result = await options.storage
-      .resolveIssuance({ messageId, email: capture.email })
-      .catch((error: unknown) => {
-        if (!(error instanceof AuthStorageError)) {
-          pending.delete(messageId);
-          capture.publication.abort();
-        }
-        throw error;
-      });
-    if (result === "committed") capture.publication.commit();
-    else capture.publication.abort();
-    pending.delete(messageId);
-    return result;
-  }
-
-  function schedule() {
-    if (closed || timer || pending.size === 0) return;
-    timer = setTimeout(() => {
-      timer = undefined;
-      reconciling = (async () => {
-        for (const messageId of pending.keys()) {
-          try {
-            await resolve(messageId);
-          } catch (error) {
-            if (error instanceof AuthStorageError) options.emit(storageUnavailable(error));
-            else options.report(ErrorSummary.of(error));
-          }
-        }
-      })().finally(() => {
-        reconciling = undefined;
-        schedule();
-      });
-    }, 1_000);
-    timer.unref();
-  }
+  const recovery = createIssuanceRecovery({
+    resolve: (issuance) => options.storage.resolveIssuance(issuance),
+    emit: options.emit,
+    report: options.report,
+  });
 
   async function inspect(tx: AuthTransaction, input: LinkInput | null): Promise<LinkVerdict> {
     const preliminary = input ? await tx.link(digest(input.token)) : null;
@@ -88,8 +52,7 @@ export function createCredentials(options: {
 
   return {
     async issue(input: AccountInput) {
-      let publication: DevelopmentInboxPublication | undefined;
-      let messageId: string | undefined;
+      let prepared: PreparedLink | undefined;
       try {
         const outcome = await options.storage.transaction(async (tx) => {
           const setup = await lockSetupThenEmail(tx, input.email);
@@ -112,34 +75,31 @@ export function createCredentials(options: {
             status: "active",
             returnTo: input.returnTo,
           };
+          let publication: DevelopmentInboxPublication;
           try {
             publication = await options.inbox.prepare(linkEmail(record, token, options.origin));
           } catch {
             options.emit({ kind: "delivery-failed" });
             return { kind: "temporary-failure" as const };
           }
-          messageId = record.messageId;
+          prepared = { messageId: record.messageId, email: record.email, publication };
           await tx.replaceLink(record);
           return { kind: "issued" as const };
         });
-        if (outcome.kind === "issued") publication?.commit();
-        else publication?.abort();
+        if (outcome.kind === "issued") prepared?.publication.commit();
+        else prepared?.publication.abort();
         return outcome;
       } catch (error) {
         if (!(error instanceof AuthStorageError)) {
-          publication?.abort();
+          prepared?.publication.abort();
           throw error;
         }
         options.emit(storageUnavailable(error));
-        if (publication && messageId && error.kind === "commit-unknown") {
-          pending.set(messageId, { email: input.email, publication });
-          try {
-            if ((await resolve(messageId)) === "committed") return { kind: "issued" as const };
-          } catch (resolveError) {
-            if (!(resolveError instanceof AuthStorageError)) throw resolveError;
-            schedule();
-          }
-        } else publication?.abort();
+        if (prepared && error.kind === "commit-unknown")
+          return (await recovery.recover(prepared)) === "committed"
+            ? { kind: "issued" as const }
+            : { kind: "temporary-failure" as const };
+        prepared?.publication.abort();
         return { kind: "temporary-failure" as const };
       }
     },
@@ -192,10 +152,6 @@ export function createCredentials(options: {
         return { kind: "confirmed" as const, token, pair, destination };
       });
     },
-    async close() {
-      closed = true;
-      if (timer) clearTimeout(timer);
-      await reconciling;
-    },
+    close: () => recovery.close(),
   };
 }
