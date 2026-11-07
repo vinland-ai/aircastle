@@ -36,7 +36,7 @@ let server: Awaited<ReturnType<typeof standaloneServer>>;
 
 beforeAll(async () => {
   const namespace = `fieldtypes_${randomUUID().replaceAll("-", "")}`;
-  store = postgresAdapter({ url: process.env.DATABASE_URL ?? "", namespace });
+  store = postgresAdapter({ url: process.env.AIRCASTLE_DATABASE_URL ?? "", namespace });
   await store.initialize();
   server = await standaloneServer(namespace);
 }, fileBudget);
