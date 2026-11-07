@@ -8,6 +8,7 @@ import {
   datetime,
   json,
   list,
+  number,
   object,
   reference,
   SchemaError,
@@ -192,6 +193,23 @@ describe("editor and uniqueness declarations", () => {
       () => compileCollection({ seo: object({ tags: list(text().unique()) }) }),
       [{ code: "invalid_item", path: ["articles", "seo", "tags"], modifier: "unique" }],
     );
+  });
+});
+
+describe("invalid_type messages", () => {
+  test.each([
+    ["text", text(), 1, "Expected a text value."],
+    ["number", number(), "1", "Expected a number."],
+    ["boolean", boolean(), "yes", "Expected true or false."],
+    ["list", list(text()), "a", "Expected a list."],
+    ["object", object({ a: text() }), "a", "Expected an object."],
+  ] as const)("a %s field names its own kind", (_kind, field, value, message) => {
+    const result = compileValid({ field }).validate({ field: value });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual([
+      expect.objectContaining({ code: "invalid_type", path: ["field"], message }),
+    ]);
   });
 });
 

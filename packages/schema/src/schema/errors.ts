@@ -1,10 +1,16 @@
-import type { IssuePath, NonemptyIssues, SchemaIssue, ValidationIssue } from "./contract.ts";
+import type {
+  ExpectedType,
+  IssuePath,
+  NonemptyIssues,
+  SchemaIssue,
+  ValidationIssue,
+} from "./contract.ts";
 
 type Details<Issue> = Issue extends { path: IssuePath; message: string }
   ? Omit<Issue, "path" | "message">
   : never;
 
-const validationMessages: Record<ValidationIssue["code"], string> = {
+const validationMessages: Record<Exclude<ValidationIssue["code"], "invalid_type">, string> = {
   required: "This field is required.",
   invalid_document: "Expected a plain document with enumerable data properties.",
   invalid_unicode: "Text contains an unpaired Unicode surrogate.",
@@ -12,7 +18,6 @@ const validationMessages: Record<ValidationIssue["code"], string> = {
   invalid_email: "Expected an email address in the supported format.",
   invalid_url: "Expected an absolute HTTP or HTTPS URL in the supported format.",
   unknown_field: "This field is not declared in the collection.",
-  invalid_type: "Expected a text value.",
   too_short: "Text is shorter than the configured minimum.",
   too_long: "Text is longer than the configured maximum.",
   invalid_choice: "The value must match one of the declared choices.",
@@ -37,11 +42,24 @@ const validationMessages: Record<ValidationIssue["code"], string> = {
   out_of_range: "The coordinate is outside the allowed range.",
 };
 
+const expectedTypeMessages: Record<ExpectedType, string> = {
+  string: "Expected a text value.",
+  number: "Expected a number.",
+  boolean: "Expected true or false.",
+  array: "Expected a list.",
+  object: "Expected an object.",
+  json: "Expected a JSON value.",
+};
+
 export function validationIssue(
   path: IssuePath,
   details: Details<ValidationIssue>,
 ): ValidationIssue {
-  return { ...details, path: [...path], message: validationMessages[details.code] };
+  const message =
+    details.code === "invalid_type"
+      ? expectedTypeMessages[details.expected]
+      : validationMessages[details.code];
+  return { ...details, path: [...path], message };
 }
 
 export function schemaIssue(path: IssuePath, details: Details<SchemaIssue>): SchemaIssue {
