@@ -792,3 +792,30 @@ test.each(deepReferences)(
     expect(published.ok).toBe(true);
   },
 );
+
+test("update checks only the references it adds, so a reference whose target was deleted does not block other changes", async () => {
+  const dangling = { ...storedArticle, author: firstMissing };
+  const { store, snapshotDocuments, observations } = referenceStore({ articles: [dangling] });
+  const service = createService(store, failOnReport);
+  const retitled = successful(
+    await service.update(access, "articles", contracts.articles, existingDocument, {
+      changes: { title: "Retitled" },
+      unset: [],
+    }),
+  );
+  expect(retitled).toEqual({ ...dangling, title: "Retitled" });
+  expect(lookups(observations.storage)).toEqual([]);
+  expect(
+    await service.update(access, "articles", contracts.articles, existingDocument, {
+      changes: { coauthors: [firstAuthor, secondMissing] },
+      unset: [],
+    }),
+  ).toEqual({
+    ok: false,
+    error: { code: "validation_failed", issues: [notFound(["coauthors", 1], "authors")] },
+  });
+  expect(lookups(observations.storage)).toEqual([
+    { kind: "existing", collection: "authors", ids: [firstAuthor, secondMissing] },
+  ]);
+  expect(snapshotDocuments("articles")).toEqual([retitled]);
+});

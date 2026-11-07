@@ -247,13 +247,23 @@ async function publicationFor(
   return { revision, contracts: Object.fromEntries(entries) };
 }
 
-/** Looks up every reference in a document, one query per target collection, and reports each missing target at its path. */
+function referenceKey(reference: { collection: string; id: string }) {
+  return JSON.stringify([reference.collection, reference.id]);
+}
+
+/** Looks up the references a document adds beyond `stored`, one query per target collection, and reports each missing target at its path. References the stored document already held are not checked again, because deleting a target leaves them in place. */
 async function missingReferences(
   transaction: ProjectTransaction,
   description: CollectionDescription,
   data: DocumentData,
+  stored?: DocumentData,
 ): Promise<Extract<Result<never>, { ok: false }> | undefined> {
-  const references = documentReferences(description, data);
+  const kept = new Set(
+    stored === undefined ? [] : documentReferences(description, stored).map(referenceKey),
+  );
+  const references = documentReferences(description, data).filter(
+    (reference) => !kept.has(referenceKey(reference)),
+  );
   const targets = new Map<string, Set<string>>();
   for (const reference of references) {
     if (!canonicalUuid.test(reference.id)) continue;
@@ -441,6 +451,7 @@ export function createService(store: ContentStore, report: ReportError): Content
             transaction,
             collection.description,
             validated.data,
+            current,
           );
           if (missing) return missing;
           const replaced = await transaction.replace(
