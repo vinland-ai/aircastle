@@ -1,3 +1,4 @@
+import { installMountProbe, readMountProbe } from './mount-probe'
 import { randomUUID } from 'node:crypto'
 import type { Route } from '@playwright/test'
 import { test, expect } from './auth-service'
@@ -39,23 +40,7 @@ test('[auth:R7] initial session check never flashes the protected shell', async 
   const held = new Promise<void>((resolve) => {
     release = resolve
   })
-  await page.addInitScript(() => {
-    const flashes: string[] = []
-    Object.assign(window, { authShellFlashes: flashes })
-    const inspect = () => {
-      if (
-        document.querySelector(
-          '[data-theme-scope="dashboard"], [aria-label="Open account menu"], [aria-label="Main navigation"]',
-        )
-      )
-        flashes.push(location.pathname)
-    }
-    new MutationObserver(inspect).observe(document, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-    })
-  })
+  await installMountProbe(page, 'initial-shell')
   await page.route('**/api/auth/{state,session}', async (route) => {
     requested = true
     await held
@@ -73,7 +58,7 @@ test('[auth:R7] initial session check never flashes the protected shell', async 
     release()
   }
   await expectSetup(page)
-  expect(await page.evaluate(() => Reflect.get(window, 'authShellFlashes'))).toEqual([])
+  expect(await readMountProbe(page, 'initial-shell')).toEqual([])
 })
 
 test('[auth:R8] failed inbox load offers Retry and recovers against the real API', async ({
