@@ -21,3 +21,27 @@ const authName = type("string")
 export const authSetupInput = type({ name: authName, email: authEmail }).onUndeclaredKey("reject");
 
 export const authSignInInput = type({ email: authEmail }).onUndeclaredKey("reject");
+
+const uuid = type("string.uuid");
+
+/** A dashboard destination that needs a session. Ids are UUIDs, and pages are the project pages. */
+export const protectedDestination = type
+  .or(
+    { kind: "'workspaces'" },
+    { kind: "'workspace-projects'", workspaceId: uuid },
+    {
+      kind: "'project-page'",
+      workspaceId: uuid,
+      projectId: uuid,
+      page: "'tasks' | 'collections' | 'media' | 'analytics' | 'users' | 'access-tokens' | 'settings'",
+    },
+  )
+  .onDeepUndeclaredKey("reject");
+
+export type ProtectedDestination = typeof protectedDestination.infer;
+
+/** Where a signed-in browser goes next: a protected destination, or one the server picks. */
+export type AuthDestination =
+  | ProtectedDestination
+  | { kind: "dashboard" }
+  | { kind: "create-workspace" };

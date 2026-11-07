@@ -1,4 +1,10 @@
-import { authEmail, authSetupInput, authSignInInput } from "@aircastle/contracts";
+import {
+  authEmail,
+  authSetupInput,
+  authSignInInput,
+  protectedDestination,
+} from "@aircastle/contracts";
+import type { ProtectedDestination } from "@aircastle/contracts";
 import { type } from "arktype";
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
 
@@ -222,5 +228,63 @@ describe("public auth contracts", () => {
 
   test("rejects a name in sign-in input", () => {
     expectFieldError(authSignInInput({ email: "alex@example.test", name: "Replacement" }), "name");
+  });
+});
+
+const workspaceId = "0b9f4a52-3c1d-4e8a-9f6b-2d7c5e1a8b30";
+const projectId = "6e2d8c14-7a5b-4f39-8d0e-1c3b9a7f5e42";
+const projectPages = [
+  "tasks",
+  "collections",
+  "media",
+  "analytics",
+  "users",
+  "access-tokens",
+  "settings",
+] as const;
+
+describe("protected destinations", () => {
+  test("infers one variant per destination kind", () => {
+    expectTypeOf<ProtectedDestination>().toEqualTypeOf<
+      | { kind: "workspaces" }
+      | { kind: "workspace-projects"; workspaceId: string }
+      | {
+          kind: "project-page";
+          workspaceId: string;
+          projectId: string;
+          page: (typeof projectPages)[number];
+        }
+    >();
+  });
+
+  test("accepts the workspace list and a workspace's projects", () => {
+    expect(protectedDestination({ kind: "workspaces" })).toEqual({ kind: "workspaces" });
+    expect(protectedDestination({ kind: "workspace-projects", workspaceId })).toEqual({
+      kind: "workspace-projects",
+      workspaceId,
+    });
+  });
+
+  test.each(projectPages)("accepts the %s project page", (page) => {
+    const destination = { kind: "project-page", workspaceId, projectId, page };
+    expect(protectedDestination(destination)).toEqual(destination);
+  });
+
+  test.each([
+    ["the dashboard", { kind: "dashboard" }],
+    ["workspace creation", { kind: "create-workspace" }],
+    ["an unsupported kind", { kind: "settings" }],
+    ["an external URL", "https://attacker.test/"],
+    ["a missing workspace id", { kind: "workspace-projects" }],
+    ["a non-UUID workspace id", { kind: "workspace-projects", workspaceId: "workspace" }],
+    ["a non-UUID project id", { kind: "project-page", workspaceId, projectId: "1", page: "tasks" }],
+    ["an unsupported page", { kind: "project-page", workspaceId, projectId, page: "billing" }],
+    ["an undeclared key", { kind: "workspaces", href: "https://attacker.test/" }],
+    [
+      "an undeclared key on a project page",
+      { kind: "project-page", workspaceId, projectId, page: "tasks", query: "?x" },
+    ],
+  ])("rejects %s", (_label, destination) => {
+    expect(protectedDestination(destination)).toBeInstanceOf(type.errors);
   });
 });

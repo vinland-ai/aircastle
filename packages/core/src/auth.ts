@@ -1,3 +1,7 @@
+import type { ProtectedDestination } from "@aircastle/contracts";
+
+export type { AuthDestination, ProtectedDestination } from "@aircastle/contracts";
+
 export interface AuthLimits {
   email: { fiveMinutes: number; oneHour: number };
   ip: { fiveMinutes: number; oneHour: number };
@@ -14,18 +18,6 @@ export interface AuthAdmissionStore {
   admit: (request: { source: string; email?: string }) => Promise<AuthAdmission>;
   close: () => Promise<void>;
 }
-
-export type AuthDestination =
-  | { kind: "dashboard" }
-  | { kind: "create-workspace" }
-  | { kind: "workspaces" }
-  | { kind: "workspace-projects"; workspaceId: string }
-  | { kind: "project-page"; workspaceId: string; projectId: string; page: string };
-
-export type ProtectedDestination = Exclude<
-  AuthDestination,
-  { kind: "dashboard" | "create-workspace" }
->;
 
 export interface AuthUserRecord {
   id: string;
