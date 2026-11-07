@@ -630,3 +630,165 @@ test("removing an unused collection from a multi-reference publishes when the co
   );
   expect(snapshot()).toEqual({ revision: publication.revision, collections: after });
 });
+
+const storedArticle: ContentDocument = {
+  id: existingDocument,
+  author: firstAuthor,
+  slug: "stored",
+  title: "Stored",
+};
+
+test("update reports every missing reference at its path and replaces nothing", async () => {
+  const { store, snapshotDocuments } = referenceStore({ articles: [storedArticle] });
+  const result = await createService(store, failOnReport).update(
+    access,
+    "articles",
+    contracts.articles,
+    existingDocument,
+    {
+      changes: {
+        author: firstMissing,
+        credits: [{ type: "credit", by: secondMissing }],
+        related: [{ author: firstAuthor }, { author: firstMissing }],
+      },
+      unset: [],
+    },
+  );
+  expect(result).toEqual({
+    ok: false,
+    error: {
+      code: "validation_failed",
+      issues: [
+        notFound(["author"], "authors"),
+        notFound(["credits", 0, "by"], "authors"),
+        notFound(["related", 1, "author"], "authors"),
+      ],
+    },
+  });
+  expect(snapshotDocuments("articles")).toEqual([storedArticle]);
+});
+
+test("update to existing references replaces the document", async () => {
+  const { store, snapshotDocuments } = referenceStore({ articles: [storedArticle] });
+  const updated = successful(
+    await createService(store, failOnReport).update(
+      access,
+      "articles",
+      contracts.articles,
+      existingDocument,
+      { changes: { author: secondAuthor, coauthors: [thirdAuthor] }, unset: [] },
+    ),
+  );
+  expect(updated).toEqual({ ...storedArticle, author: secondAuthor, coauthors: [thirdAuthor] });
+  expect(snapshotDocuments("articles")).toEqual([updated]);
+});
+
+test("update assigns ids to new blocks and rows at any depth and keeps the ids already stored", async () => {
+  const { store, snapshotDocuments } = referenceStore({
+    layouts: [
+      {
+        id: existingDocument,
+        body: [{ type: "hero", heading: "Hi", id: "b0" }],
+        maybe: [],
+        owner: firstAuthor,
+        rows: [{ label: "Kept", id: "r0", cells: [] }],
+        section: { content: [] },
+        tags: [],
+      },
+    ],
+  });
+  const service = createService(store, failOnReport);
+  const updated = successful(
+    await service.update(access, "layouts", contracts.layouts, existingDocument, {
+      changes: {
+        body: [
+          { type: "hero", heading: "Hi", id: "b0" },
+          { type: "gallery", slides: [{ type: "image", caption: "New" }] },
+        ],
+        rows: [
+          { label: "Kept", id: "r0", cells: [] },
+          { label: "New", cells: [{ type: "cell", v: "y" }] },
+        ],
+      },
+      unset: [],
+    }),
+  );
+  expect(updated).toEqual({
+    id: existingDocument,
+    body: [
+      { type: "hero", heading: "Hi", id: "b0" },
+      {
+        type: "gallery",
+        id: generated,
+        slides: [{ type: "image", caption: "New", id: generated }],
+      },
+    ],
+    maybe: [],
+    owner: firstAuthor,
+    rows: [
+      { label: "Kept", id: "r0", cells: [] },
+      { label: "New", id: generated, cells: [{ type: "cell", v: "y", id: generated }] },
+    ],
+    section: { content: [] },
+    tags: [],
+  });
+  expect(snapshotDocuments("layouts")).toEqual([updated]);
+  expect(await service.findById(access, "layouts", contracts.layouts, existingDocument)).toEqual({
+    ok: true,
+    data: updated,
+  });
+});
+
+const deepReferences: [string, (target: string) => Field, ContentDocument[string]][] = [
+  ["inside an object", (target) => object({ by: reference(target) }), { by: firstAuthor }],
+  ["as a list item", (target) => list(reference(target)), [firstAuthor]],
+  [
+    "inside a block variant",
+    (target) => blocks({ credit: object({ by: reference(target) }) }),
+    [{ type: "credit", id: "b1", by: firstAuthor }],
+  ],
+  [
+    "inside a list item's object",
+    (target) => list(object({ by: reference(target) })),
+    [{ id: "r1", by: firstAuthor }],
+  ],
+];
+
+test.each(deepReferences)(
+  "retargeting a reference %s fails with migration_required when the collection has documents",
+  async (_where, author, value) => {
+    const before = retargetable(author("authors"));
+    const { store, snapshot } = referenceStore(
+      {
+        notes: [{ id: existingDocument, author: value, title: "Note" }],
+        users: [],
+      },
+      before,
+    );
+    expect(
+      await createService(store, failOnReport).publish(access, {
+        baseline: "revision-start",
+        collections: retargetable(author("users")),
+      }),
+    ).toEqual({ ok: false, error: { code: "migration_required" } });
+    expect(snapshot()).toEqual({ revision: "revision-start", collections: before });
+  },
+);
+
+test.each(deepReferences)(
+  "keeping the target of a reference %s publishes when the collection has documents",
+  async (_where, author, value) => {
+    const { store } = referenceStore(
+      {
+        notes: [{ id: existingDocument, author: value, title: "Note" }],
+        users: [],
+      },
+      retargetable(author("authors")),
+    );
+    const published = await createService(store, failOnReport).publish(access, {
+      baseline: "revision-start",
+      collections: retargetable(author("authors")),
+    });
+    expect(published.ok).toBe(true);
+  },
+);

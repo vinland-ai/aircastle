@@ -247,6 +247,36 @@ async function publicationFor(
   return { revision, contracts: Object.fromEntries(entries) };
 }
 
+/** Looks up every reference in a document, one query per target collection, and reports each missing target at its path. */
+async function missingReferences(
+  transaction: ProjectTransaction,
+  description: CollectionDescription,
+  data: DocumentData,
+): Promise<Extract<Result<never>, { ok: false }> | undefined> {
+  const references = documentReferences(description, data);
+  const targets = new Map<string, Set<string>>();
+  for (const reference of references) {
+    if (!canonicalUuid.test(reference.id)) continue;
+    const ids = targets.get(reference.collection) ?? new Set<string>();
+    ids.add(reference.id);
+    targets.set(reference.collection, ids);
+  }
+  const found = new Map<string, ReadonlySet<string>>();
+  for (const [target, ids] of targets)
+    found.set(target, await transaction.existing(target, [...ids]));
+  const [first, ...rest] = references
+    .filter((reference) => !found.get(reference.collection)?.has(reference.id))
+    .map((reference) => ({
+      path: reference.path,
+      code: "not_found" as const,
+      collection: reference.collection,
+      message: "Referenced document does not exist",
+    }));
+  return first
+    ? { ok: false, error: { code: "validation_failed", issues: [first, ...rest] } }
+    : undefined;
+}
+
 export function createService(store: ContentStore, report: ReportError): ContentService {
   const authorize = (access: Access, permission: Permission): Promise<Result<null>> =>
     attempt(report, async () => {
@@ -330,28 +360,12 @@ export function createService(store: ContentStore, report: ReportError): Content
           const validated = compileDescription(collection.description).validate(input);
           if (!validated.ok)
             return { ok: false, error: { code: "validation_failed", issues: validated.issues } };
-          const references = documentReferences(collection.description, validated.data);
-          const targets = new Map<string, Set<string>>();
-          for (const reference of references) {
-            if (!canonicalUuid.test(reference.id)) continue;
-            const ids = targets.get(reference.collection) ?? new Set<string>();
-            ids.add(reference.id);
-            targets.set(reference.collection, ids);
-          }
-          const found = new Map<string, ReadonlySet<string>>();
-          for (const [target, ids] of targets)
-            found.set(target, await transaction.existing(target, [...ids]));
-          const missing = references.filter(
-            (reference) => !found.get(reference.collection)?.has(reference.id),
+          const missing = await missingReferences(
+            transaction,
+            collection.description,
+            validated.data,
           );
-          const [first, ...rest] = missing.map((reference) => ({
-            path: reference.path,
-            code: "not_found" as const,
-            collection: reference.collection,
-            message: "Referenced document does not exist",
-          }));
-          if (first)
-            return { ok: false, error: { code: "validation_failed", issues: [first, ...rest] } };
+          if (missing) return missing;
           const data = assignIds(collection.description, validated.data, randomUUID);
           const projected = projectDocument(client, collection.description, {
             ...data,
@@ -423,10 +437,16 @@ export function createService(store: ContentStore, report: ReportError): Content
           });
           if (!validated.ok)
             return { ok: false, error: { code: "validation_failed", issues: validated.issues } };
+          const missing = await missingReferences(
+            transaction,
+            collection.description,
+            validated.data,
+          );
+          if (missing) return missing;
           const replaced = await transaction.replace(
             collectionName,
             stored.id,
-            validated.data,
+            assignIds(collection.description, validated.data, randomUUID),
             uniqueFields(collection.description),
           );
           if (!replaced.ok) return replaced;
