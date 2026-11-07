@@ -64,10 +64,6 @@
     {
       "id": "claudeAgent",
       "reason": "Claude 1 terminated; unavailable for factory work"
-    },
-    {
-      "id": "claudeAgent_claude_2",
-      "reason": "Usage capped during repository bootstrap; resume only after capacity recovers"
     }
   ]
 }
