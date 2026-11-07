@@ -50,6 +50,7 @@ import {
 import {
   frameAt,
   loopDuration,
+  playbackRate,
   prompt,
   stillFrame,
   type CursorShape,
@@ -59,7 +60,6 @@ import {
 } from './timeline'
 
 const frameWidth = 1280
-const playbackRate = 1.2
 const frameHeight = 740
 
 function sameFrame(left: Frame, right: Frame) {

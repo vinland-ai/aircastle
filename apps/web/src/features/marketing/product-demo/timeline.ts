@@ -198,6 +198,9 @@ const previewClickEndsAfterEditor = previewClickAfterEditor + clickDuration
 const editorDuration = previewClickEndsAfterEditor + askTiming.ends
 const editorClosesAt = editorOpensAt + editorDuration
 
+/** How many timeline milliseconds the preview plays per real millisecond. */
+export const playbackRate = 1.2
+
 /** Length of one loop of the product preview, in milliseconds. */
 export const loopDuration = editorClosesAt + restAfterEditor
 
