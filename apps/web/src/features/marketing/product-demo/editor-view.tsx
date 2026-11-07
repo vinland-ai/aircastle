@@ -51,7 +51,8 @@ import { DocsPage, docsTitle, docsUrl } from './docs-preview'
 import { MentionText } from './mention'
 import { AgentAvatar } from './agent-avatar'
 import { PersonAvatar } from './person'
-import { prompt, seoTiming, type CoverState } from './timeline'
+import { seoActiveAt, seoFields, seoTypedAt } from './seo-typing'
+import { prompt, type CoverState } from './timeline'
 import {
   bodyDraftDuration,
   bodyDraftTimed,
@@ -1084,39 +1085,6 @@ function BodyField({ writing, elapsed }: { writing: boolean; elapsed: number | n
   )
 }
 
-const seoFields = [
-  {
-    name: 'meta-title',
-    label: 'Meta title',
-    value: 'Introducing Acme MCP: connect Acme to your AI tools',
-    placeholder: 'Defaults to the post title',
-    limit: 60,
-    start: 0,
-    duration: seoTiming.metaTitleTyped,
-    leave: 1100,
-  },
-  {
-    name: 'meta-description',
-    label: 'Meta description',
-    value:
-      'Acme MCP lets Claude, Cursor and other AI tools read and update your Acme workspace. Set it up in a few minutes.',
-    placeholder: 'Defaults to the summary',
-    limit: 160,
-    start: 1100,
-    duration: 1500,
-    leave: 3000,
-  },
-  {
-    name: 'focus-keyword',
-    label: 'Focus keyword',
-    value: 'Acme MCP',
-    placeholder: 'Add a keyword',
-    start: 3000,
-    duration: 350,
-    leave: seoTiming.done,
-  },
-] as const
-
 function SeoField({
   field,
   elapsed,
@@ -1124,18 +1092,8 @@ function SeoField({
   field: (typeof seoFields)[number]
   elapsed: number | null
 }) {
-  const count =
-    elapsed === null
-      ? 0
-      : Math.max(
-          0,
-          Math.min(
-            field.value.length,
-            Math.floor(((elapsed - field.start) / field.duration) * field.value.length),
-          ),
-        )
-  const active =
-    elapsed !== null && (field.start === 0 || elapsed >= field.start) && elapsed < field.leave
+  const count = seoTypedAt(field, elapsed)
+  const active = seoActiveAt(field, elapsed)
   return (
     <Field
       name={field.name}

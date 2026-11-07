@@ -18,6 +18,7 @@ import {
   siteScrollAt,
   unreadNotificationsAt,
 } from './site-ask'
+import { seoActiveAt, seoFields, seoTypedAt } from './seo-typing'
 import { frameAt, loopDuration, playbackRate, prompt, seoTiming, type Frame } from './timeline'
 
 const step = 5
@@ -261,9 +262,23 @@ describe('the product preview story', () => {
     expect(frameAt(hovering).cursorShape).toBe('pointer')
     const clicks = between(setsOff, siteOpens).filter(({ frame }) => frame.cursor === 'clicking')
     expect(clicks.length).toBeGreaterThan(0)
-    for (const { frame: clicking } of clicks) expect(clicking.previewElapsed).toBe(null)
-    expect(siteOpens - (clicks.at(-1)?.at ?? 0)).toBeLessThanOrEqual(step)
-    expect(frameAt(siteOpens).view).toBe('editor')
+    expect(siteOpens - (clicks.at(-1)?.at ?? 0), 'the site opens as the click ends').toBe(step)
+    expect(frameAt(siteOpens)).toMatchObject({ view: 'editor', cursor: 'still' })
+  })
+
+  it('keeps Askeladd’s tab active on each SEO field for as long as it is part typed', () => {
+    for (const field of seoFields) {
+      let partway = 0
+      for (let elapsed = -500; elapsed < seoTiming.done + 500; elapsed += 1) {
+        const typed = seoTypedAt(field, elapsed)
+        if (typed === 0 || typed === field.value.length) continue
+        partway += 1
+        expect(seoActiveAt(field, elapsed), `${field.name} at ${elapsed}ms`).toBe(true)
+      }
+      expect(partway, `${field.name} is typed over time`).toBeGreaterThan(100)
+      expect(seoTypedAt(field, seoTiming.done)).toBe(field.value.length)
+      expect(seoActiveAt(field, seoTiming.done)).toBe(false)
+    }
   })
 
   it('scrolls the live post past the opening line and back while the cursor is on the page, then selects the line with a text cursor', () => {
