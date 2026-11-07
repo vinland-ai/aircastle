@@ -150,4 +150,40 @@ describe('Confirmation display over HTTP doubles, without authentication proof',
     expect(screen.queryByText(/postgres|display-secret|stack trace/i)).toBeNull()
     expectNoShell()
   })
+
+  it.each([
+    { purpose: 'sign-in', state: 'signed-out', heading: 'Sign in', action: 'Send sign-in link' },
+    {
+      purpose: 'setup',
+      state: 'setup-required',
+      heading: 'Create your super user account',
+      action: 'Continue',
+    },
+  ] as const)(
+    'a $purpose link visit that a newer navigation supersedes leaves no confirmation for the next visit',
+    async ({ purpose, state, heading, action }) => {
+      const held = deferredResponse()
+      const http = displayHttp({
+        'GET /api/auth/state': () => ok({ kind: state }),
+        'POST /api/auth/confirm/preview': () => held.promise,
+      })
+      const { history, router } = await mountAuth('/', http)
+      await screen.findByRole('heading', { name: 'Aircastle' })
+      await act(async () => history.push(`/${purpose}?token=superseded-token`))
+      await waitFor(() => expect(http.calls('/auth/confirm/preview')).toHaveLength(1))
+      await act(async () => history.push('/'))
+      await waitFor(() => expect(router.state.status).toBe('idle'))
+      await act(async () => {
+        held.resolve(ok({ email: 'alex@example.test', purpose }))
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      })
+      await act(async () => history.push(`/${purpose}`))
+
+      expect(await screen.findByRole('heading', { name: heading })).toBeTruthy()
+      expect(router.state.location.pathname).toBe(`/${purpose}`)
+      expect(screen.getByRole('button', { name: action })).toBeTruthy()
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(screen.queryByText('Continue as alex@example.test')).toBeNull()
+    },
+  )
 })
