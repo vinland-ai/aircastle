@@ -1,5 +1,5 @@
 import { type } from "arktype";
-import { authSetupInput, authSignInInput } from "@aircastle/contracts";
+import { authSetupInput, authSignInInput, protectedDestination } from "@aircastle/contracts";
 import type { ProtectedDestination } from "@aircastle/core";
 
 export type LinkInput = { purpose: "setup" | "sign-in"; token: string };
@@ -7,25 +7,11 @@ export type AccountInput =
   | { purpose: "setup"; name: string; email: string; returnTo: ProtectedDestination | null }
   | { purpose: "sign-in"; email: string; returnTo: ProtectedDestination | null };
 
-const workspaceId = type("string.uuid");
-const destination = type
-  .or(
-    { kind: "'workspaces'" },
-    { kind: "'workspace-projects'", workspaceId },
-    {
-      kind: "'project-page'",
-      workspaceId,
-      projectId: workspaceId,
-      page: "'tasks' | 'collections' | 'media' | 'analytics' | 'users' | 'access-tokens' | 'settings'",
-    },
-  )
-  .onDeepUndeclaredKey("reject");
-
 export const authEntryInput = type
   .or(
-    { kind: "'resolve'", "requested?": destination },
+    { kind: "'resolve'", "requested?": protectedDestination },
     { kind: "'skip-onboarding'" },
-    { kind: "'visit'", destination },
+    { kind: "'visit'", destination: protectedDestination },
   )
   .onDeepUndeclaredKey("reject");
 
@@ -46,7 +32,7 @@ export function parseAccount(
   }
   let target: ProtectedDestination | null = null;
   if (returnTo !== undefined) {
-    const parsedTarget = destination(returnTo);
+    const parsedTarget = protectedDestination(returnTo);
     if (parsedTarget instanceof type.errors)
       return { kind: "invalid-input", fields: { returnTo: "Choose an allowed destination" } };
     target = parsedTarget;
