@@ -1,29 +1,17 @@
 import { createElement, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
+import type { DevelopmentInboxEntry } from '@aircastle/contracts'
 import { useAuth } from './context'
-
-interface InboxMessage {
-  read: boolean
-  mail: {
-    messageId: string
-    date: string
-    from: string
-    to: string[]
-    subject: string
-    text: string
-    html?: string
-  }
-}
 
 type Messages =
   | { kind: 'loading' }
   | { kind: 'failed' }
-  | { kind: 'ready'; messages: InboxMessage[] }
+  | { kind: 'ready'; messages: readonly DevelopmentInboxEntry[] }
 type Reading =
   | { kind: 'none' }
   | { kind: 'loading'; id: string }
   | { kind: 'failed'; id: string }
-  | { kind: 'ready'; message: InboxMessage }
+  | { kind: 'ready'; message: DevelopmentInboxEntry }
 
 function safeMailHtml(html: string): ReactNode {
   const document = new DOMParser().parseFromString(html, 'text/html')
@@ -101,7 +89,9 @@ export function DevelopmentInbox() {
   const [reading, setReading] = useState<Reading>({ kind: 'none' })
   const openSequence = useRef(0)
   const list = useCallback(async () => {
-    const result = await auth.request<InboxMessage[]>('/development-inbox/messages')
+    const result = await auth.request<readonly DevelopmentInboxEntry[]>(
+      '/development-inbox/messages',
+    )
     setListing(
       result.kind === 'ok'
         ? {
@@ -130,7 +120,7 @@ export function DevelopmentInbox() {
   async function open(id: string) {
     const sequence = ++openSequence.current
     setReading({ kind: 'loading', id })
-    const result = await auth.request<InboxMessage>(
+    const result = await auth.request<DevelopmentInboxEntry>(
       `/development-inbox/messages/${encodeURIComponent(id)}/open`,
       {},
     )

@@ -1,4 +1,4 @@
-import type { ProtectedDestination } from '@aircastle/contracts'
+import { protectedDestination, type ProtectedDestination } from '@aircastle/contracts'
 
 /** A project page that a protected route can name, as the API accepts it. */
 export type ProjectPage = Extract<ProtectedDestination, { kind: 'project-page' }>['page']
@@ -21,11 +21,9 @@ export type RouteAccess =
   | { kind: 'account'; purpose: 'setup' | 'sign-in' }
   | { kind: 'protected'; guard: (params: RouteParams) => Guard }
 
-const uuid =
-  /^(?:[\dA-Fa-f]{8}-[\dA-Fa-f]{4}-[1-8][\dA-Fa-f]{3}-[89ABab][\dA-Fa-f]{3}-[\dA-Fa-f]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/
-
-const id = (value: string | undefined) =>
-  value !== undefined && uuid.test(value) ? value.toLowerCase() : undefined
+/** Visits the destination if the shared contract accepts it. Ids reach the server in lower case. */
+const visit = (destination: unknown): Guard =>
+  protectedDestination.allows(destination) ? { kind: 'visit', destination } : { kind: 'denied' }
 
 const protectedRoute = (guard: (params: RouteParams) => Guard) =>
   ({ kind: 'protected', guard }) as const satisfies RouteAccess
@@ -40,20 +38,18 @@ export const access = {
   dashboard: protectedRoute(() => ({ kind: 'resolve' })),
   session: protectedRoute(() => ({ kind: 'session' })),
   workspaces: protectedRoute(() => ({ kind: 'visit', destination: { kind: 'workspaces' } })),
-  workspaceProjects: protectedRoute((params) => {
-    const workspaceId = id(params.workspaceId)
-    return workspaceId
-      ? { kind: 'visit', destination: { kind: 'workspace-projects', workspaceId } }
-      : { kind: 'denied' }
-  }),
+  workspaceProjects: protectedRoute((params) =>
+    visit({ kind: 'workspace-projects', workspaceId: params.workspaceId?.toLowerCase() }),
+  ),
   projectPage: (page: ProjectPage) =>
-    protectedRoute((params) => {
-      const workspaceId = id(params.workspaceId)
-      const projectId = id(params.projectId)
-      return workspaceId && projectId
-        ? { kind: 'visit', destination: { kind: 'project-page', workspaceId, projectId, page } }
-        : { kind: 'denied' }
-    }),
+    protectedRoute((params) =>
+      visit({
+        kind: 'project-page',
+        workspaceId: params.workspaceId?.toLowerCase(),
+        projectId: params.projectId?.toLowerCase(),
+        page,
+      }),
+    ),
 } as const satisfies Record<string, RouteAccess | ((page: ProjectPage) => RouteAccess)>
 
 /**

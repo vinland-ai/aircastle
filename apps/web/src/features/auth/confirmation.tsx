@@ -3,15 +3,13 @@ import { useRouter } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { useAuth } from './context'
 import type { Confirmation } from './guard'
-import type { AuthDestination } from '@aircastle/contracts'
+import type { AuthDestination, LinkPreview } from '@aircastle/contracts'
 import { destinationPath, type HttpResult } from './http'
 
 export function ConfirmationPage({ confirmation }: { confirmation: Confirmation }) {
   const { auth } = useAuth()
   const router = useRouter()
-  const [result, setResult] = useState<HttpResult<{ email: string; purpose: 'setup' | 'sign-in' }>>(
-    confirmation.preview,
-  )
+  const [result, setResult] = useState<HttpResult<LinkPreview>>(confirmation.preview)
   const [pending, setPending] = useState(false)
   const submitting = useRef(false)
   let message = ''

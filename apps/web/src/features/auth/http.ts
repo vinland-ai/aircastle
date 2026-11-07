@@ -1,28 +1,10 @@
-import type { AuthDestination } from '@aircastle/contracts'
+import type { AuthDestination, AuthFailure } from '@aircastle/contracts'
 
 export interface AuthBrowserOptions {
   fetch?: typeof globalThis.fetch
 }
 
-export interface BrowserSession {
-  user: { id: string; name: string; email: string; authority: 'super_user' }
-  expiresAt: number
-}
-
-export type HttpResult<Value> =
-  | { kind: 'ok'; value: Value }
-  | {
-      kind:
-        | 'temporary-failure'
-        | 'unauthenticated'
-        | 'forbidden'
-        | 'invalid-input'
-        | 'email-not-allowed'
-        | 'setup-complete'
-        | 'setup-required'
-    }
-  | { kind: 'invalid-link' | 'superseded-link'; next: 'setup' | 'sign-in' }
-  | { kind: 'throttled'; retryAt: number }
+export type HttpResult<Value> = { kind: 'ok'; value: Value } | AuthFailure
 
 export function createAuthHttp(options: AuthBrowserOptions) {
   const transport = options.fetch ?? globalThis.fetch.bind(globalThis)
