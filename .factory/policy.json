@@ -1,0 +1,68 @@
+{
+  "engine": { "version": "0.1.0", "schema": "1.0" },
+  "branch": "main",
+  "required_checks": ["Lint, typecheck and test"],
+  "commands": { "check": ["vp run check"] },
+  "logins": { "owner": "abyanmajid", "bot": "abyan-ai-integration" },
+  "allowed_admins": [],
+  "merge_authority": false,
+  "merge_settlement_minutes": 10,
+  "landing_reservation_minutes": 30,
+  "audit_backfill_days": 7,
+  "discovery_overlap_minutes": 5,
+  "stack_trailer": "Factory-Owner",
+  "holds": [
+    { "kind": "product-behaviour", "description": "New or changed product behaviour" },
+    { "kind": "reverses-decision", "description": "Reverses a deliberate earlier decision" },
+    { "kind": "deletes-infrastructure", "description": "Deletes infrastructure in use" },
+    { "kind": "spending", "description": "Spending, schedules, cost caps or lowered thresholds" },
+    {
+      "kind": "public-docs",
+      "description": "Public documentation beyond setup",
+      "detector": { "paths": ["README.md", "docs/**"] }
+    },
+    {
+      "kind": "automation",
+      "description": "Workflow and automation",
+      "security_lens": true,
+      "detector": { "paths": [".github/workflows/**"] }
+    },
+    {
+      "kind": "relaxed-tests",
+      "description": "Relaxed or deleted tests, lint rules or harness checks"
+    },
+    {
+      "kind": "factory-config",
+      "description": "Changes to .factory/",
+      "security_lens": true,
+      "detector": {
+        "paths": [".factory/**", ".github/rulesets/**", "CODEOWNERS", ".github/CODEOWNERS"]
+      }
+    },
+    {
+      "kind": "tooling",
+      "description": "Tooling, CI or dependencies",
+      "security_lens": true,
+      "detector": {
+        "paths": ["package.json", "bun.lock", "bun.lockb", "vite.config.ts", "tsconfig.json"]
+      }
+    }
+  ],
+  "verification": {
+    "default": {
+      "lenses": ["correctness", "rules", "unknowns"],
+      "mandatory": ["tests"],
+      "optional": []
+    },
+    "behaviour": {
+      "lenses": ["correctness", "rules", "spec", "unknowns"],
+      "mandatory": ["tests"],
+      "optional": []
+    },
+    "tooling": {
+      "lenses": ["correctness", "rules", "unknowns", "security"],
+      "mandatory": ["tests"],
+      "optional": []
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "units": [
+    { "id": "code", "globs": ["**/*"], "shared_inputs": [], "depends_on": [] },
+    {
+      "id": "public-docs",
+      "globs": ["README.md", "docs/**"],
+      "shared_inputs": [],
+      "depends_on": []
+    }
+  ]
+}

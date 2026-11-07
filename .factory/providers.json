@@ -1,0 +1,21 @@
+{
+  "instances": [
+    { "id": "strongest-a", "vendor": "vendor-a", "model": "set-me", "tier": "strongest" },
+    { "id": "implementer-a", "vendor": "vendor-a", "model": "set-me", "tier": "implementer" },
+    { "id": "utility-a", "vendor": "vendor-a", "model": "set-me", "tier": "utility" }
+  ],
+  "roles": {
+    "factory:tick": "utility",
+    "factory:watchdog": "utility",
+    "factory:review": "strongest",
+    "factory:fix": "implementer",
+    "factory:audit": "strongest",
+    "factory:challenge": "strongest",
+    "factory:implement": "implementer",
+    "factory:council-seat": "strongest",
+    "factory:garden": "utility",
+    "factory:council": "utility",
+    "factory:feature": "strongest"
+  },
+  "order": ["vendor-a"]
+}

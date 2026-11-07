@@ -79,3 +79,7 @@ Apply these rules to README.md, guides, reference docs, and other public copy.
 - Describe concrete behavior and instructions. Support claims with evidence or named sources; distinguish planned features from shipped behavior.
 - Cut hype, filler, jargon, metaphors, chatbot phrases, vague claims, and needless hedging. Avoid stock contrasts such as "not just X, but Y" and forced lists of three.
 - Use sentence case headings and straight quotes. Avoid em dashes, decorative emoji, excessive bold, and fragments that make readers decode the text.
+
+## Factory
+
+This repository is reviewed and landed by the factory. Its policy lives in `.factory/`: `policy.json` (holds, verification matrix, commands, target branch), `units.json`, `providers.json` and `rubric.md`. Changes to `.factory/` need the owner's code-owner review. Address review findings through the PR; the factory, not a person, merges bot-authored PRs.
