@@ -230,6 +230,21 @@ describe("composite schema error codes", () => {
       issues: [{ code: "unsupported_unique", path: ["articles", "field"] }],
     },
     {
+      name: "unsupported_unique on an item three lists deep",
+      field: () => list(list(list(text().unique()))),
+      issues: [{ code: "unsupported_unique", path: ["articles", "field"] }],
+    },
+    {
+      name: "unsupported_unique on an item four lists deep",
+      field: () => list(list(list(list(text().unique())))),
+      issues: [{ code: "unsupported_unique", path: ["articles", "field"] }],
+    },
+    {
+      name: "invalid_item on the direct item of a list inside a list item's object",
+      field: () => list(object({ tags: list(text().unique()) })),
+      issues: [{ code: "invalid_item", path: ["articles", "field", "tags"], modifier: "unique" }],
+    },
+    {
       name: "unsupported_unique on a variant field",
       field: () => blocks({ hero: object({ slug: text().unique() }) }),
       issues: [{ code: "unsupported_unique", path: ["articles", "field", "hero", "slug"] }],

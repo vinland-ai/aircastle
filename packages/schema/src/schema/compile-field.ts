@@ -12,7 +12,7 @@ import { validateText } from "./values.ts";
 /** Where a field sits, which decides how `.unique()` is judged and which collections references may name. */
 export interface CompileContext {
   readonly collections: ReadonlySet<string>;
-  readonly unique: "allowed" | "item" | "unsupported";
+  readonly unique: "allowed" | "item" | "nested-item" | "unsupported";
 }
 
 export interface CompiledResult {
@@ -159,7 +159,7 @@ function compileText(
   const rules: MutableTextRules = { kind: "text", unique: false };
   if (has(modifiers, "unique")) {
     if (context.unique === "allowed") rules.unique = true;
-    else if (context.unique === "unsupported")
+    else if (context.unique === "unsupported" || context.unique === "nested-item")
       own.push(schemaIssue(path, { code: "unsupported_unique" }));
   }
   const formats = [
@@ -308,7 +308,7 @@ function compileList(
     own.push(schemaIssue(path, { code: "invalid_item", modifier: "optional" }));
   if (has(modifiers, "default"))
     own.push(schemaIssue(path, { code: "invalid_item", modifier: "default" }));
-  const directItem = context.unique !== "item";
+  const directItem = context.unique !== "item" && context.unique !== "nested-item";
   if (has(modifiers, "unique") && directItem)
     own.push(schemaIssue(path, { code: "invalid_item", modifier: "unique" }));
   if (itemDefinition.kind === "object") {
@@ -318,7 +318,7 @@ function compileList(
   }
   const compiled = compileField(itemDefinition, path, {
     ...context,
-    unique: directItem ? "item" : "unsupported",
+    unique: directItem ? "item" : "nested-item",
   });
   children.push(...compiled.issues);
   return compiled.field;
