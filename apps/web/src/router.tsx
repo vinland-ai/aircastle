@@ -16,7 +16,9 @@ import {
   unmatchedAccess,
   AuthRoot,
   DashboardLayout,
-  Workspaces,
+  WorkspacesPage,
+  CreateWorkspacePage,
+  ProjectsPage,
   createBrowserAuth,
   DevelopmentInbox,
   type AuthBrowserOptions,
@@ -107,19 +109,19 @@ const workspacesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dash/workspaces',
   staticData: { access: access.workspaces },
-  component: () => <Workspaces title="Workspaces" />,
+  component: WorkspacesPage,
 })
 const createWorkspaceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dash/workspaces/new',
   staticData: { access: access.session },
-  component: () => <Workspaces title="Create a workspace" />,
+  component: CreateWorkspacePage,
 })
 const projectsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dash/workspaces/$workspaceId/projects',
   staticData: { access: access.workspaceProjects },
-  component: () => <Workspaces title="Projects" />,
+  component: ProjectsPage,
 })
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,

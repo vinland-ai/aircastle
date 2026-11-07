@@ -1,10 +1,8 @@
 import { Outlet, useRouter } from '@tanstack/react-router'
-import { useState } from 'react'
 import App from '@/App'
-import { AppShell, AccountControls } from '@/components/shell'
+import { AppShell } from '@/components/shell'
 import { Button } from '@/components/ui/button'
-import { useAuth } from './context'
-import { WorkspacePage } from './workspaces'
+import { useAuth, useSignedIn } from './context'
 
 export function AuthRoot() {
   const { view } = useAuth()
@@ -27,42 +25,12 @@ export function AuthRoot() {
   )
 }
 
-function useShellAccount() {
-  const { auth, view } = useAuth()
-  const router = useRouter()
-  const [failure, setFailure] = useState(false)
-  const account =
-    view.kind === 'authenticated'
-      ? {
-          user: view.session.user,
-          signOut: async () => {
-            const result = await auth.api.signOut()
-            if (result.kind === 'ok') await router.navigate({ to: '/sign-in', replace: true })
-            else setFailure(true)
-          },
-        }
-      : null
-  return { account, failure }
-}
-
 export function DashboardLayout() {
-  const { account, failure } = useShellAccount()
-  if (!account) return null
+  const { session, signOut, signOutFailed } = useSignedIn()
   return (
-    <AppShell account={account}>
-      {failure && <p role="alert">Could not sign out. Try again.</p>}
+    <AppShell account={{ user: session.user, signOut }}>
+      {signOutFailed && <p role="alert">Could not sign out. Try again.</p>}
       <Outlet />
     </AppShell>
-  )
-}
-
-export function Workspaces({ title }: { title: 'Workspaces' | 'Create a workspace' | 'Projects' }) {
-  const { account, failure } = useShellAccount()
-  if (!account) return null
-  return (
-    <>
-      {failure && <p role="alert">Could not sign out. Try again.</p>}
-      <WorkspacePage title={title} controls={<AccountControls account={account} />} />
-    </>
   )
 }
