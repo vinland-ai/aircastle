@@ -13,7 +13,7 @@
     "bot": "abyan-ai-integration"
   },
   "allowed_admins": [],
-  "merge_authority": false,
+  "merge_authority": true,
   "routine_review_paths": ["README.md"],
   "merge_settlement_minutes": 10,
   "landing_reservation_minutes": 30,
@@ -118,7 +118,7 @@
     "default": {
       "lenses": ["correctness", "rules", "unknowns"],
       "mandatory": [
-        "affected tests selected and passing, with the command and exit code",
+        "affected existing checks selected and passing, with the command and exit code; docs-only changes use direct text and link verification",
         "vp run check exit 0 on the final commit"
       ],
       "optional": []
@@ -126,66 +126,120 @@
     "behaviour": {
       "lenses": ["correctness", "rules", "spec", "unknowns"],
       "mandatory": [
-        "observable outcomes and failure cases written before implementation",
-        "tests written first and seen failing for the intended reason",
-        "tests exercise Aircastle code through the module's public interface"
+        "when executable behavior changes, observable outcomes and relevant failure cases written before implementation",
+        "when executable behavior changes, tests written first and seen failing for the intended reason",
+        "when tests are added or changed, they exercise Aircastle code through the module's public interface"
       ],
-      "optional": ["focused fault check of test sensitivity"]
+      "optional": ["focused fault check of test sensitivity"],
+      "paths": [
+        "apps/*/src/**/*.{ts,tsx,css}",
+        "packages/*/src/**/*.{ts,tsx}",
+        "scripts/**/*.{ts,js,mjs}",
+        "packages/*/scripts/**/*.{ts,js,mjs}"
+      ],
+      "allow_not_applicable": [
+        "when executable behavior changes, observable outcomes and relevant failure cases written before implementation",
+        "when executable behavior changes, tests written first and seen failing for the intended reason",
+        "when tests are added or changed, they exercise Aircastle code through the module's public interface"
+      ]
     },
     "web-ui": {
       "lenses": ["correctness", "rules", "spec", "unknowns"],
       "mandatory": [
-        "component tests beside the feature through its public entry point (apps/web/VERIFICATION.md)",
-        "a browser journey in apps/web/e2e for the changed user path when correctness depends on real entry, CSS, browser storage or history, focus, keyboard input or integration between features",
-        "relevant failure cases selected, or stated as not applicable: invalid or empty data, long and Unicode text, large lists, narrow screens, text enlargement, persistence, loading and network errors"
+        "when component behavior changes, component tests beside the feature through its public entry point follow apps/web/VERIFICATION.md",
+        "when correctness depends on real entry, CSS, browser storage or history, focus, keyboard input or integration between features, a browser journey covers the changed user path in apps/web/e2e",
+        "when UI behavior changes, relevant failure cases are selected or cited as not applicable: invalid or empty data, long and Unicode text, large lists, narrow screens, text enlargement, persistence, loading and network errors"
       ],
       "optional": [
         "recorded journeys from vp run test-web:record in the PR body",
         "coverage from vp run test-web:coverage with raw covered and total counts"
+      ],
+      "paths": ["apps/web/src/**", "apps/web/e2e/**", "apps/web/index.html", "apps/web/public/**"],
+      "allow_not_applicable": [
+        "when component behavior changes, component tests beside the feature through its public entry point follow apps/web/VERIFICATION.md",
+        "when correctness depends on real entry, CSS, browser storage or history, focus, keyboard input or integration between features, a browser journey covers the changed user path in apps/web/e2e",
+        "when UI behavior changes, relevant failure cases are selected or cited as not applicable: invalid or empty data, long and Unicode text, large lists, narrow screens, text enlargement, persistence, loading and network errors"
       ]
     },
     "schema": {
       "lenses": ["correctness", "rules", "spec", "unknowns"],
       "mandatory": [
-        "property tests for changed validation or compilation rules",
+        "when validation or compilation rules change, property tests cover the changed rules",
         "schema coverage at or above the thresholds in packages/schema/vite.config.ts (vp run test:coverage)",
-        "type fixtures for changed public types (vp run test:typecheck)"
+        "when public type contracts change, type fixtures cover them with vp run test:typecheck"
       ],
-      "optional": ["mutation run: vp -C packages/schema run test:mutation"]
+      "optional": ["mutation run: vp -C packages/schema run test:mutation"],
+      "paths": [
+        "packages/schema/src/**",
+        "packages/schema/tests/**",
+        "packages/schema/vite.config.ts"
+      ],
+      "allow_not_applicable": [
+        "when validation or compilation rules change, property tests cover the changed rules",
+        "when public type contracts change, type fixtures cover them with vp run test:typecheck"
+      ]
     },
     "api": {
       "lenses": ["correctness", "rules", "spec", "unknowns"],
       "mandatory": [
-        "route tests through createApp",
-        "database-backed tests run with vp run db:test -- <command>"
+        "when HTTP route behavior changes, route tests exercise createApp",
+        "when API behavior depends on persistence, database-backed tests run with vp run db:test -- <command>"
       ],
-      "optional": []
+      "optional": [],
+      "paths": ["apps/api/src/**"],
+      "allow_not_applicable": [
+        "when HTTP route behavior changes, route tests exercise createApp",
+        "when API behavior depends on persistence, database-backed tests run with vp run db:test -- <command>"
+      ]
     },
     "persistence": {
       "lenses": ["correctness", "rules", "unknowns"],
       "mandatory": [
-        "the ContentStore contract suite on the fake store and on Postgres",
-        "database-dependent guarantees such as uniqueness enforced at the persistence layer"
+        "when the ContentStore contract or its implementations change, the contract suite runs on the fake store and Postgres",
+        "when database-dependent guarantees change, such as uniqueness, they are enforced at the persistence layer"
       ],
-      "optional": []
+      "optional": [],
+      "paths": ["packages/adapter-postgres/src/**", "packages/core/src/**"],
+      "allow_not_applicable": [
+        "when the ContentStore contract or its implementations change, the contract suite runs on the fake store and Postgres",
+        "when database-dependent guarantees change, such as uniqueness, they are enforced at the persistence layer"
+      ]
     },
     "guardrail": {
       "lenses": ["correctness", "rules", "unknowns"],
       "mandatory": [
-        "a planted violation fails the check, with the command and exit code, and is removed",
-        "hurried-agent bypasses tried and closed or explained",
-        "the guardrails table in .agents/skills/guardrails/SKILL.md updated"
+        "when a guardrail is added or changed, a planted violation fails the check with command and exit code and is removed",
+        "when a guardrail is added or changed, hurried-agent bypasses are tried and closed or explained",
+        "when a guardrail is added or changed, the guardrails table in .agents/skills/guardrails/SKILL.md is updated"
       ],
-      "optional": []
+      "optional": [],
+      "paths": [
+        "tests/harness/**",
+        "scripts/check-code-policy.ts",
+        "vite.config.ts",
+        "knip.json",
+        "packages/*/vite.config.ts",
+        ".agents/skills/guardrails/**",
+        ".github/workflows/**"
+      ],
+      "allow_not_applicable": [
+        "when a guardrail is added or changed, a planted violation fails the check with command and exit code and is removed",
+        "when a guardrail is added or changed, hurried-agent bypasses are tried and closed or explained",
+        "when a guardrail is added or changed, the guardrails table in .agents/skills/guardrails/SKILL.md is updated"
+      ]
     },
     "ci": {
       "lenses": ["correctness", "rules", "unknowns", "security"],
       "mandatory": [
         "vp run lint:workflows exit 0",
         "tests/harness/ci-parity.test.ts passes",
-        "measured critical path: wall-clock time of the slowest job chain before and after, from CI runs"
+        "when CI scheduling, dependencies, sharding or worker limits change, the critical path is measured before and after from CI runs"
       ],
-      "optional": []
+      "optional": [],
+      "paths": [".github/workflows/**", ".github/actions/**"],
+      "allow_not_applicable": [
+        "when CI scheduling, dependencies, sharding or worker limits change, the critical path is measured before and after from CI runs"
+      ]
     },
     "tooling": {
       "lenses": ["correctness", "rules", "unknowns", "security"],
@@ -193,7 +247,24 @@
         "vp run check exit 0 on the final commit",
         "no new install-time or CI-time code execution without a stated reason"
       ],
-      "optional": []
+      "optional": [],
+      "paths": [
+        "**/package.json",
+        "bun.lock",
+        ".bun-version",
+        ".node-version",
+        "**/tsconfig*.json",
+        "**/vite*.config.ts",
+        "knip.json",
+        "compose.yaml",
+        "apps/web/playwright.config.ts",
+        "packages/*/stryker.config.json",
+        "scripts/**",
+        "**/scripts/**",
+        ".github/workflows/**",
+        ".github/actions/**",
+        ".vite-hooks/**"
+      ]
     },
     "factory-policy": {
       "lenses": ["correctness", "rules", "unknowns", "security"],
@@ -201,7 +272,8 @@
         "factory validate exit 0 for the PR head",
         "tests/harness/factory-policy.test.ts passes"
       ],
-      "optional": ["factory doctor output"]
+      "optional": ["factory doctor output"],
+      "paths": [".factory/**", ".github/rulesets/**", ".github/CODEOWNERS"]
     },
     "docs": {
       "lenses": ["rules", "unknowns"],
@@ -210,7 +282,8 @@
         "every relative link resolves",
         "the rubric's communication standard"
       ],
-      "optional": []
+      "optional": [],
+      "paths": ["**/*.md", "LICENSE"]
     }
   }
 }

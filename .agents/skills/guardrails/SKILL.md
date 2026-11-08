@@ -52,6 +52,7 @@ Put each rule at the highest layer that can express it.
 | The required `Lint, typecheck and test` gate needs every check job, runs with `always()` and fails unless all succeeded | `tests/harness/ci-parity.test.ts` | Drop a job from the gate's `needs`, then `vp test tests/harness/ci-parity.test.ts` |
 
 | Factory JSON, tracked unit coverage, root check recipes, CI gate and owner paths agree; shared inputs invalidate consumers, scripts require security review, and split rulesets enforce strict protection | `tests/harness/factory-policy.test.ts` | Break each contract in turn, run `vp test tests/harness/factory-policy.test.ts`, record exit 1, then restore it |
+| Factory verification follows affected paths; only explicit conditional requirements allow cited non-applicability, while final checks remain required | `tests/harness/factory-policy.test.ts` | Remove a scope selector, broaden an API selector to README, or allow the final check to be not applicable; each fails the focused harness |
 
 If a check blocks you, fix the code. Change the check only when it is wrong, and say why in the PR.
 

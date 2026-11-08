@@ -23,6 +23,10 @@ interface Policy {
   commands: { check: string[] };
   logins: { owner: string };
   holds: HoldRule[];
+  verification: Record<
+    string,
+    { paths?: string[]; mandatory: string[]; allow_not_applicable?: string[] }
+  >;
 }
 
 const root = resolve(import.meta.dirname, "../..");
@@ -74,6 +78,58 @@ test("every .factory JSON file parses", () => {
   expect(jsonFiles.sort()).toEqual(["policy.json", "providers.json", "units.json"]);
   for (const name of jsonFiles)
     expect(() => JSON.parse(readText(`.factory/${name}`)), name).not.toThrow();
+});
+
+test("verification scopes follow the affected concern without adding unrelated work", () => {
+  const cases: [string[], string[]][] = [
+    [["README.md"], ["default", "docs"]],
+    [["apps/web/VERIFICATION.md"], ["default", "docs"]],
+    [["apps/web/src/theme.ts"], ["default", "behaviour", "web-ui"]],
+    [["apps/api/src/features/content/index.ts"], ["default", "behaviour", "api"]],
+    [["packages/core/src/index.ts"], ["default", "behaviour", "persistence"]],
+    [["packages/schema/src/index.ts"], ["default", "behaviour", "schema"]],
+    [[".github/workflows/ci.yml"], ["default", "guardrail", "ci", "tooling"]],
+    [[".factory/policy.json"], ["default", "factory-policy"]],
+    [["tests/harness/factory-policy.test.ts"], ["default", "guardrail"]],
+    [
+      ["README.md", "apps/api/src/features/content/index.ts"],
+      ["default", "behaviour", "api", "docs"],
+    ],
+  ];
+  for (const [paths, expected] of cases) {
+    const applicable = Object.entries(policy.verification)
+      .filter(
+        ([, scope]) =>
+          (scope.paths?.length ?? 0) === 0 ||
+          engineMatches(scope.paths ?? [], paths).flat().length > 0,
+      )
+      .map(([name]) => name);
+    expect(applicable.sort(), paths.join(", ")).toEqual([...expected].sort());
+  }
+});
+
+test("only explicit conditional verification can be cited as not applicable", () => {
+  for (const [name, scope] of Object.entries(policy.verification)) {
+    if (name !== "default") expect(scope.paths?.length ?? 0, name).toBeGreaterThan(0);
+    const allowed = scope.allow_not_applicable ?? [];
+    expect(allowed, name).toEqual(scope.mandatory.filter((item) => item.startsWith("when ")));
+    for (const item of allowed) {
+      expect(scope.mandatory, name).toContain(item);
+      expect(item, name).not.toContain("vp run check");
+    }
+  }
+  const defaults = policy.verification.default;
+  expect(defaults?.paths ?? []).toEqual([]);
+  expect(defaults?.allow_not_applicable ?? []).toEqual([]);
+  expect(defaults?.mandatory).toContain("vp run check exit 0 on the final commit");
+  expect(policy.commands.check).toEqual(["vp run check"]);
+});
+
+test("verification selectors match existing tracked paths", () => {
+  const globs = Object.values(policy.verification).flatMap((scope) => scope.paths ?? []);
+  expect(globs.length).toBeGreaterThan(0);
+  const matches = engineMatches(globs, trackedFiles);
+  expect(globs.filter((_glob, index) => matches[index]?.length === 0)).toEqual([]);
 });
 
 test("every unit glob and shared input matches a tracked file", () => {
