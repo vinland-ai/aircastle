@@ -135,7 +135,13 @@
         "apps/*/src/**/*.{ts,tsx,css}",
         "packages/*/src/**/*.{ts,tsx}",
         "scripts/**/*.{ts,js,mjs}",
-        "packages/*/scripts/**/*.{ts,js,mjs}"
+        "packages/*/scripts/**/*.{ts,js,mjs}",
+        "apps/*/scripts/**/*.{ts,js,mjs}",
+        "packages/*/tests/**",
+        "tests/*.test.ts",
+        "tests/support/**",
+        "tests/web/**",
+        "apps/web/e2e/**"
       ],
       "allow_not_applicable": [
         "when executable behavior changes, observable outcomes and relevant failure cases written before implementation",
@@ -220,7 +226,10 @@
         "knip.json",
         "packages/*/vite.config.ts",
         ".agents/skills/guardrails/**",
-        ".github/workflows/**"
+        ".github/workflows/**",
+        ".github/actions/**",
+        "packages/*/stryker.config.json",
+        "packages/schema/scripts/check-type-fixtures.ts"
       ],
       "allow_not_applicable": [
         "when a guardrail is added or changed, a planted violation fails the check with command and exit code and is removed",
@@ -263,7 +272,8 @@
         "**/scripts/**",
         ".github/workflows/**",
         ".github/actions/**",
-        ".vite-hooks/**"
+        ".vite-hooks/**",
+        ".github/dependabot.yml"
       ]
     },
     "factory-policy": {
