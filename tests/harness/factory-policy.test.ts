@@ -196,6 +196,16 @@ test("the owner-reviewed paths are exactly the CODEOWNERS entries", () => {
   expect(detected).toContain(".factory/**");
 });
 
+test("harness guard tests require the owner's review", () => {
+  const harness = trackedFiles.filter((path) => path.startsWith("tests/harness/"));
+  expect(harness.length).toBeGreaterThan(0);
+  const detectors = policy.holds
+    .filter((hold) => hold.kind === ownerReviewedHold)
+    .flatMap((hold) => hold.detector?.paths ?? []);
+  const covered = new Set(engineMatches(detectors, harness).flat());
+  expect(harness.filter((path) => !covered.has(path))).toEqual([]);
+});
+
 test("executable scripts require the security lens", () => {
   const scripts = trackedFiles.filter(
     (path) => path.split("/").includes("scripts") && /\.[cm]?[jt]s$/.test(path),

@@ -82,4 +82,4 @@ Apply these rules to README.md, guides, reference docs, and other public copy.
 
 ## Factory
 
-`.factory/` holds the factory policy, unit map, provider tiers and review rubric. The factory evaluates changes against the base policy and never lands a PR with an unsatisfied owner hold. Merge authority is disabled until the owner enables it.
+`.factory/` holds the factory policy, unit map, provider tiers and review rubric. The factory evaluates changes against the base policy and never lands a PR with an unsatisfied owner hold. Merge authority is enabled, so the factory lands eligible PRs without the owner merging them.
