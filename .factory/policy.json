@@ -14,6 +14,7 @@
   },
   "allowed_admins": [],
   "merge_authority": false,
+  "routine_review_paths": ["README.md"],
   "merge_settlement_minutes": 10,
   "landing_reservation_minutes": 30,
   "audit_backfill_days": 7,
