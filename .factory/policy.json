@@ -1,0 +1,216 @@
+{
+  "engine": {
+    "version": "0.1.0",
+    "schema": "1.0"
+  },
+  "branch": "main",
+  "required_checks": ["Lint, typecheck and test"],
+  "commands": {
+    "check": ["vp run check"]
+  },
+  "logins": {
+    "owner": "abyanmajid",
+    "bot": "abyan-ai-integration"
+  },
+  "allowed_admins": [],
+  "merge_authority": false,
+  "routine_review_paths": ["README.md"],
+  "merge_settlement_minutes": 10,
+  "landing_reservation_minutes": 30,
+  "audit_backfill_days": 7,
+  "discovery_overlap_minutes": 5,
+  "stack_trailer": "Factory-Owner",
+  "holds": [
+    {
+      "kind": "product-behaviour",
+      "description": "New or changed product behavior: anything a CMS user, API client or admin user can observe. Satisfied by an approved spec revision that covers the change, or by the owner."
+    },
+    {
+      "kind": "reverses-decision",
+      "description": "Reverses a deliberate earlier decision. Read `git log -S` for the lines the change touches; a commit that chose the current behavior on purpose makes this hold apply."
+    },
+    {
+      "kind": "deletes-infrastructure",
+      "description": "Deletes infrastructure the owner still builds on: scripts, workflows, harness tests, packages, compose services or fixtures in use."
+    },
+    {
+      "kind": "spending",
+      "description": "Spending money, schedules, cost caps, or a lowered threshold such as coverage or mutation scores.",
+      "detector": {
+        "paths": ["packages/*/stryker.config.json", "packages/schema/vite.config.ts"]
+      }
+    },
+    {
+      "kind": "public-docs",
+      "description": "Public documentation beyond development setup. AGENTS.md authorizes routine README.md setup updates that reflect agreed tooling changes; the owner decides the rest.",
+      "detector": {
+        "paths": ["README.md", "FEATURES.md", "LICENSE", "docs/**"]
+      }
+    },
+    {
+      "kind": "automation",
+      "description": "Workflow and automation changes: GitHub Actions workflows, the shared setup action, Dependabot and git hooks.",
+      "security_lens": true,
+      "detector": {
+        "paths": [
+          ".github/workflows/**",
+          ".github/actions/**",
+          ".github/dependabot.yml",
+          ".vite-hooks/**"
+        ]
+      }
+    },
+    {
+      "kind": "relaxed-tests",
+      "description": "Relaxes or deletes an existing test, assertion, lint rule, policy rule, coverage threshold or harness check. Adding a guardrail does not trip this hold."
+    },
+    {
+      "kind": "owner-reviewed-path",
+      "description": "Touches a path in .github/CODEOWNERS: automation, agent instructions, auth, migrations, public documentation, the license and .factory/. GitHub requires the owner's code-owner review on these paths.",
+      "detector": {
+        "paths": [
+          ".github/**",
+          "AGENTS.md",
+          "**/AGENTS.md",
+          ".agents/**",
+          ".claude/**",
+          "**/auth/**",
+          "**/auth.ts",
+          "**/migrations/**",
+          "README.md",
+          "docs/**",
+          "LICENSE",
+          ".factory/**"
+        ]
+      }
+    },
+    {
+      "kind": "factory-config",
+      "description": "Changes the factory policy or the repository contract it relies on: .factory/, the rulesets and CODEOWNERS. The PR is evaluated with the policy at its base.",
+      "security_lens": true,
+      "detector": {
+        "paths": [".factory/**", ".github/rulesets/**", ".github/CODEOWNERS"]
+      }
+    },
+    {
+      "kind": "tooling",
+      "description": "Tooling, CI or dependencies: package manifests, the lockfile, runtime versions, build, lint, type-check and test configuration, and repository scripts. Requires the independent security lens: credential exposure, new network access, code that runs during install or CI, and weakened checks.",
+      "security_lens": true,
+      "detector": {
+        "paths": [
+          "**/package.json",
+          "bun.lock",
+          ".bun-version",
+          ".node-version",
+          "**/tsconfig*.json",
+          "**/vite*.config.ts",
+          "knip.json",
+          "compose.yaml",
+          "apps/web/playwright.config.ts",
+          "packages/*/stryker.config.json",
+          "scripts/**",
+          "**/scripts/**"
+        ]
+      }
+    }
+  ],
+  "verification": {
+    "default": {
+      "lenses": ["correctness", "rules", "unknowns"],
+      "mandatory": [
+        "affected tests selected and passing, with the command and exit code",
+        "vp run check exit 0 on the final commit"
+      ],
+      "optional": []
+    },
+    "behaviour": {
+      "lenses": ["correctness", "rules", "spec", "unknowns"],
+      "mandatory": [
+        "observable outcomes and failure cases written before implementation",
+        "tests written first and seen failing for the intended reason",
+        "tests exercise Aircastle code through the module's public interface"
+      ],
+      "optional": ["focused fault check of test sensitivity"]
+    },
+    "web-ui": {
+      "lenses": ["correctness", "rules", "spec", "unknowns"],
+      "mandatory": [
+        "component tests beside the feature through its public entry point (apps/web/VERIFICATION.md)",
+        "a browser journey in apps/web/e2e for the changed user path when correctness depends on real entry, CSS, browser storage or history, focus, keyboard input or integration between features",
+        "relevant failure cases selected, or stated as not applicable: invalid or empty data, long and Unicode text, large lists, narrow screens, text enlargement, persistence, loading and network errors"
+      ],
+      "optional": [
+        "recorded journeys from vp run test-web:record in the PR body",
+        "coverage from vp run test-web:coverage with raw covered and total counts"
+      ]
+    },
+    "schema": {
+      "lenses": ["correctness", "rules", "spec", "unknowns"],
+      "mandatory": [
+        "property tests for changed validation or compilation rules",
+        "schema coverage at or above the thresholds in packages/schema/vite.config.ts (vp run test:coverage)",
+        "type fixtures for changed public types (vp run test:typecheck)"
+      ],
+      "optional": ["mutation run: vp -C packages/schema run test:mutation"]
+    },
+    "api": {
+      "lenses": ["correctness", "rules", "spec", "unknowns"],
+      "mandatory": [
+        "route tests through createApp",
+        "database-backed tests run with vp run db:test -- <command>"
+      ],
+      "optional": []
+    },
+    "persistence": {
+      "lenses": ["correctness", "rules", "unknowns"],
+      "mandatory": [
+        "the ContentStore contract suite on the fake store and on Postgres",
+        "database-dependent guarantees such as uniqueness enforced at the persistence layer"
+      ],
+      "optional": []
+    },
+    "guardrail": {
+      "lenses": ["correctness", "rules", "unknowns"],
+      "mandatory": [
+        "a planted violation fails the check, with the command and exit code, and is removed",
+        "hurried-agent bypasses tried and closed or explained",
+        "the guardrails table in .agents/skills/guardrails/SKILL.md updated"
+      ],
+      "optional": []
+    },
+    "ci": {
+      "lenses": ["correctness", "rules", "unknowns", "security"],
+      "mandatory": [
+        "vp run lint:workflows exit 0",
+        "tests/harness/ci-parity.test.ts passes",
+        "measured critical path: wall-clock time of the slowest job chain before and after, from CI runs"
+      ],
+      "optional": []
+    },
+    "tooling": {
+      "lenses": ["correctness", "rules", "unknowns", "security"],
+      "mandatory": [
+        "vp run check exit 0 on the final commit",
+        "no new install-time or CI-time code execution without a stated reason"
+      ],
+      "optional": []
+    },
+    "factory-policy": {
+      "lenses": ["correctness", "rules", "unknowns", "security"],
+      "mandatory": [
+        "factory validate exit 0 for the PR head",
+        "tests/harness/factory-policy.test.ts passes"
+      ],
+      "optional": ["factory doctor output"]
+    },
+    "docs": {
+      "lenses": ["rules", "unknowns"],
+      "mandatory": [
+        "every vp run recipe names a real script (tests/harness/command-recipes.test.ts)",
+        "every relative link resolves",
+        "the rubric's communication standard"
+      ],
+      "optional": []
+    }
+  }
+}
