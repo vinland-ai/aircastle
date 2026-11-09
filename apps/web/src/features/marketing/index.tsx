@@ -1,15 +1,37 @@
 import { Link } from '@tanstack/react-router'
 import { ArrowRightIcon } from 'lucide-react'
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Header } from './header'
 import { ProductDemo } from './product-demo'
 import { RotatingWord } from './rotating-word'
 
 const heroWords = ['write', 'research', 'publish', 'audit'] as const
+const getStartedClassName =
+  'inline-flex items-center rounded-lg bg-primary px-4 py-2 font-[400] text-primary-foreground transition-colors hover:bg-primary/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
 
-export function MarketingPage() {
+function EarlyAccessGetStarted() {
+  return (
+    <Popover>
+      <PopoverTrigger className={getStartedClassName}>Get started</PopoverTrigger>
+      <PopoverContent align="start" sideOffset={8} className="w-80 gap-1 p-4 text-base">
+        <PopoverTitle className="font-[400]">Aircastle is in private early access</PopoverTitle>
+        <PopoverDescription>Public sign-up isn't open yet.</PopoverDescription>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** The public landing page. `earlyAccess` hides links into unbuilt pages and keeps visitors out of the app. */
+export function MarketingPage({ earlyAccess = false }: { earlyAccess?: boolean }) {
   return (
     <div data-theme-scope="marketing" className="flex min-h-svh flex-col">
-      <Header />
+      <Header earlyAccess={earlyAccess} />
       <main data-theme-scope="marketing" className="flex-1">
         <section className="mx-auto w-full max-w-[70rem] px-4 pt-10 pb-12 md:pt-24 md:pb-16">
           <p className="mb-6 inline-flex items-center gap-1.5 text-base text-muted-foreground md:mb-10 md:text-lg">
@@ -39,12 +61,13 @@ export function MarketingPage() {
             take on the busywork, so you can publish more than ever before.
           </p>
           <div className="mt-8 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2 md:mt-10">
-            <Link
-              to="/sign-in"
-              className="inline-flex items-center rounded-lg bg-primary px-4 py-2 font-[400] text-primary-foreground transition-colors hover:bg-primary/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-              Get started
-            </Link>
+            {earlyAccess ? (
+              <EarlyAccessGetStarted />
+            ) : (
+              <Link to="/sign-in" className={getStartedClassName}>
+                Get started
+              </Link>
+            )}
             <a
               href="#product-demo"
               className="group inline-flex items-center gap-1.5 rounded-lg px-0 py-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:px-4"

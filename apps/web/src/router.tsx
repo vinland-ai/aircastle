@@ -1,32 +1,18 @@
 import {
-  createRootRoute,
   createRoute,
   createRouter,
   Outlet,
   redirect,
   type RouterHistory,
 } from '@tanstack/react-router'
-import App from './App'
 import { AppShell } from '@/components/shell'
 import { MarketingPage } from '@/features/marketing'
 import { SignInPage } from '@/features/sign-in'
-import { NotFoundPage } from '@/features/not-found'
 import { DashboardSkeleton } from '@/components/dashboard-skeleton'
 import { navigationPages } from '@/features/navigation'
-import { landingDescription, landingTitle } from '@/metadata'
+import { landingTitle, signInTitle } from '@/metadata'
+import { rootRoute } from './root-route'
 
-const rootRoute = createRootRoute({
-  component: App,
-  notFoundComponent: NotFoundPage,
-  head: () => ({
-    meta: [
-      {
-        name: 'description',
-        content: landingDescription,
-      },
-    ],
-  }),
-})
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
@@ -74,7 +60,7 @@ const signInRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/sign-in',
   component: SignInPage,
-  head: () => ({ meta: [{ title: 'Aircastle - Sign in' }] }),
+  head: () => ({ meta: [{ title: signInTitle }] }),
 })
 type DashboardPagePath =
   (typeof navigationPages)[number]['path'] extends `/dash/workspaces/$workspaceId/projects/$projectId/${infer Path}`

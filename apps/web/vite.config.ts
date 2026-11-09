@@ -14,14 +14,18 @@ const fixtureModules = new Map([
     source('./e2e/fixture-modules/navigation-pages.ts'),
   ],
 ])
-const fixtureData: Plugin = {
-  name: 'fixture-data',
-  enforce: 'pre',
-  async resolveId(specifier, importer, options) {
-    const resolved = await this.resolve(specifier, importer, { ...options, skipSelf: true })
-    const fixture = resolved && fixtureModules.get(resolved.id)
-    return fixture && importer !== fixture ? fixture : resolved
-  },
+const landingModules = new Map([[source('./src/router.tsx'), source('./src/landing-router.tsx')]])
+
+function swapModules(name: string, swaps: Map<string, string>): Plugin {
+  return {
+    name,
+    enforce: 'pre',
+    async resolveId(specifier, importer, options) {
+      const resolved = await this.resolve(specifier, importer, { ...options, skipSelf: true })
+      const swap = resolved && swaps.get(resolved.id)
+      return swap && importer !== swap ? swap : resolved
+    },
+  }
 }
 
 export default defineConfig(({ mode }) => {
@@ -45,14 +49,16 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 43121,
       strictPort: true,
-      proxy: {
-        '^/api(?:/|$)': { target: `http://127.0.0.1:${env.PORT ?? 43122}` },
-      },
+      proxy:
+        mode === 'landing'
+          ? {}
+          : { '^/api(?:/|$)': { target: `http://127.0.0.1:${env.PORT ?? 43122}` } },
     },
     preview: { port: 43121, strictPort: true },
     plugins:
       lazyPlugins(() => [
-        ...(process.env.WEB_FIXTURES === '1' ? [fixtureData] : []),
+        ...(process.env.WEB_FIXTURES === '1' ? [swapModules('fixture-data', fixtureModules)] : []),
+        ...(mode === 'landing' ? [swapModules('landing-only', landingModules)] : []),
         tailwindcss(),
         react(),
         babel({ presets: [reactCompilerPreset()] }),

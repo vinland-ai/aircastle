@@ -4,6 +4,7 @@ import { origins } from './e2e/origins'
 
 const recording = process.env.WEB_E2E_VIDEO === '1'
 const ci = Boolean(process.env.CI)
+const modeFlag = (origin: string) => (origin === 'landing' ? ' --mode landing' : '')
 
 export default defineConfig({
   testDir: './e2e',
@@ -23,7 +24,7 @@ export default defineConfig({
     ['json', { outputFile: 'reports/results.json' }],
   ],
   webServer: Object.entries(origins).map(([name, { port, url }]) => ({
-    command: `vp build --outDir reports/build/${name} && vp preview --outDir reports/build/${name} --host 127.0.0.1 --port ${port} --strictPort`,
+    command: `vp build${modeFlag(name)} --outDir reports/build/${name} && vp preview${modeFlag(name)} --outDir reports/build/${name} --host 127.0.0.1 --port ${port} --strictPort`,
     url,
     env: { WEB_FIXTURES: name === 'fixture' ? '1' : '0' },
     reuseExistingServer: false,
