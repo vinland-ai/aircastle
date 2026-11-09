@@ -19,9 +19,18 @@ function EarlyAccessGetStarted() {
   return (
     <Popover>
       <PopoverTrigger className={getStartedClassName}>Get started</PopoverTrigger>
-      <PopoverContent align="start" sideOffset={8} className="w-80 gap-1 p-4 text-base">
-        <PopoverTitle className="font-[400]">Aircastle is in private early access</PopoverTitle>
-        <PopoverDescription>Public sign-up isn't open yet.</PopoverDescription>
+      <PopoverContent
+        data-theme-scope="marketing"
+        align="start"
+        sideOffset={8}
+        className="w-80 gap-1 p-4"
+      >
+        <PopoverTitle className="text-foreground">
+          Aircastle is in private early access
+        </PopoverTitle>
+        <PopoverDescription className="text-base">
+          Public sign-up isn't open yet.
+        </PopoverDescription>
       </PopoverContent>
     </Popover>
   )

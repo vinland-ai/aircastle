@@ -4,7 +4,7 @@ import { origins } from './e2e/origins'
 
 const recording = process.env.WEB_E2E_VIDEO === '1'
 const ci = Boolean(process.env.CI)
-const modeFlag = (origin: string) => (origin === 'landing' ? ' --mode landing' : '')
+const modeFlag = (name: string) => (name === 'landing' ? ' --mode landing' : '')
 
 export default defineConfig({
   testDir: './e2e',

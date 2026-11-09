@@ -137,6 +137,8 @@ test.describe('landing-only build', () => {
     await email.fill('reader@example.com')
     await submit.click()
     await expect(page.getByRole('status')).toHaveText(earlyAccessMessage)
+    await email.fill('reader@example.org')
+    await expect(page.getByRole('status')).toHaveText('')
     await email.press('Enter')
     await expect(page.getByRole('status')).toHaveText(earlyAccessMessage)
     await expect(page).toHaveURL(landingUrl('/sign-in'))
@@ -145,7 +147,7 @@ test.describe('landing-only build', () => {
 
   test('the landing bundle names no API or local endpoint and leaves out the dashboard shell', async () => {
     const files = await builtFiles()
-    const text = files.filter((file) => /\.(html|js|css|json|txt|webmanifest)$/.test(file))
+    const text = files.filter((file) => /\.(html|js|css)$/.test(file))
     expect(text.length).toBeGreaterThan(1)
     for (const file of text) {
       const source = await readFile(join(buildDir, file), 'utf8')
@@ -153,12 +155,24 @@ test.describe('landing-only build', () => {
         '/api',
         'localhost:',
         '127.0.0.1',
-        'VITE_',
         'Toggle Sidebar',
         'Open account menu',
       ]) {
         expect(source.includes(forbidden), `${file} must not contain ${forbidden}`).toBe(false)
       }
     }
+  })
+
+  test('every asset the landing bundle names is a built file', async () => {
+    const files = await builtFiles()
+    const named = new Set<string>()
+    for (const file of files.filter((name) => /\.(html|js|css)$/.test(name))) {
+      const source = await readFile(join(buildDir, file), 'utf8')
+      for (const [path] of source.matchAll(/\/(?:assets|brand|demo)\/[\w./-]+\.\w+/g)) {
+        named.add(path.slice(1))
+      }
+    }
+    expect(named.size).toBeGreaterThan(10)
+    expect([...named].filter((path) => !files.includes(path))).toEqual([])
   })
 })

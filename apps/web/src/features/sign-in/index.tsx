@@ -8,7 +8,7 @@ import { CloudArt } from './cloud-art'
 
 /** The sign-in page. `earlyAccess` answers every submitted email with an early-access notice and sends nothing. */
 export function SignInPage({ earlyAccess = false }: { earlyAccess?: boolean }) {
-  const [refused, setRefused] = useState(false)
+  const [refusals, setRefusals] = useState(0)
   return (
     <main
       data-theme-scope="marketing"
@@ -32,7 +32,7 @@ export function SignInPage({ earlyAccess = false }: { earlyAccess?: boolean }) {
           <form
             onSubmit={(event) => {
               event.preventDefault()
-              setRefused(earlyAccess)
+              if (earlyAccess) setRefusals((count) => count + 1)
             }}
           >
             <FieldGroup className="gap-3">
@@ -48,6 +48,7 @@ export function SignInPage({ earlyAccess = false }: { earlyAccess?: boolean }) {
                     type="email"
                     autoComplete="email"
                     required={earlyAccess}
+                    onChange={() => setRefusals(0)}
                     className="text-base md:text-base"
                   />
                   <InputGroupAddon align="inline-start">
@@ -61,9 +62,12 @@ export function SignInPage({ earlyAccess = false }: { earlyAccess?: boolean }) {
             </FieldGroup>
           </form>
           {earlyAccess ? (
-            <p role="status" className="text-base text-muted-foreground">
-              {refused &&
-                "Aircastle is in private early access. You're not on the access list yet."}
+            <p role="status" className="text-base text-foreground">
+              {refusals > 0 && (
+                <span key={refusals}>
+                  Aircastle is in private early access. You're not on the access list yet.
+                </span>
+              )}
             </p>
           ) : (
             <p className="mt-6 text-base text-muted-foreground">
