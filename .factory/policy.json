@@ -6,6 +6,7 @@
   "branch": "main",
   "required_checks": ["Lint, typecheck and test"],
   "commands": {
+    "install": ["vp install --frozen-lockfile"],
     "check": ["vp run check"]
   },
   "logins": {
