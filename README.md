@@ -71,7 +71,7 @@ vp -C apps/web exec playwright install chromium
 vp run test-web:e2e
 ```
 
-Playwright builds the web app twice, once with its real data and once with fixture data, and serves each build until the run ends. The normal build listens on `WEB_E2E_PORT`, which defaults to 43124, and the fixture build listens on the next port. An occupied port stops the run. To run browser journeys in two worktrees at once, give each run its own port, for example `WEB_E2E_PORT=43224 vp run test-web:e2e`. The journeys do not require the API or Postgres for the current shell.
+Playwright builds the web app three times, with its real data, with fixture data, and as the landing page alone, and serves each build until the run ends. The normal build listens on `WEB_E2E_PORT`, which defaults to 43124, and the fixture and landing builds listen on the next two ports. An occupied port stops the run. To run browser journeys in two worktrees at once, give each run its own port, for example `WEB_E2E_PORT=43224 vp run test-web:e2e`. The journeys do not require the API or Postgres for the current shell.
 
 Each run overwrites its reports in `apps/web/reports/`. `html/` holds the HTML report, `results.json` holds the JSON results, `test-results/` holds traces and screenshots of failed tests, and `build/normal/` and `build/fixture/` hold the two builds. Open the HTML report with `vp -C apps/web exec playwright show-report reports/html`. Run a focused scenario with `vp run test-web:e2e stress.spec.ts --grep long-text`.
 
