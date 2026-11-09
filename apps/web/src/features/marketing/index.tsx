@@ -25,12 +25,10 @@ function EarlyAccessGetStarted() {
         sideOffset={8}
         className="w-80 gap-1 p-4"
       >
-        <PopoverTitle className="text-foreground">
+        <PopoverTitle className="font-[400] text-foreground">
           Aircastle is in private early access
         </PopoverTitle>
-        <PopoverDescription className="text-base">
-          Public sign-up isn't open yet.
-        </PopoverDescription>
+        <PopoverDescription>Public sign-up isn't open yet.</PopoverDescription>
       </PopoverContent>
     </Popover>
   )
