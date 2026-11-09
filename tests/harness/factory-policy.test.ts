@@ -179,6 +179,42 @@ test("the required checks are the CI gate job", () => {
   expect(policy.required_checks).toEqual(gates);
 });
 
+test("files that agent harnesses load on their own require the owner's review", () => {
+  const harnessFiles = [
+    "AGENTS.md",
+    "apps/web/AGENTS.md",
+    "AGENTS.override.md",
+    "apps/web/AGENTS.override.md",
+    "CLAUDE.md",
+    "apps/web/CLAUDE.md",
+    "CLAUDE.local.md",
+    "apps/web/CLAUDE.local.md",
+    "GEMINI.md",
+    "apps/web/GEMINI.md",
+    ".agents/skills/guardrails/SKILL.md",
+    "apps/web/.agents/skills/setup/SKILL.md",
+    ".claude/settings.json",
+    "apps/web/.claude/skills/setup/SKILL.md",
+    ".mcp.json",
+    ".codex/config.toml",
+    "apps/web/.codex/config.toml",
+    ".cursor/rules/setup.mdc",
+    "apps/web/.cursor/rules/setup.mdc",
+    ".cursor/mcp.json",
+    ".cursorrules",
+    ".gemini/settings.json",
+    "apps/web/.gemini/settings.json",
+    ".vscode/mcp.json",
+    ".vscode/tasks.json",
+    ".github/copilot-instructions.md",
+  ];
+  const detectors = policy.holds
+    .filter((hold) => hold.kind === ownerReviewedHold)
+    .flatMap((hold) => hold.detector?.paths ?? []);
+  const covered = new Set(engineMatches(detectors, harnessFiles).flat());
+  expect(harnessFiles.filter((path) => !covered.has(path))).toEqual([]);
+});
+
 test("the owner-reviewed paths are exactly the CODEOWNERS entries", () => {
   const entries = readText(".github/CODEOWNERS")
     .split("\n")
