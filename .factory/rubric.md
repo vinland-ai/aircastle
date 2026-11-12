@@ -14,6 +14,8 @@
 - `reasoned`: an argument with no artifact. Only nits and questions may rest on it.
 - `owner`: an owner decision or requirement, with its decision id.
 
+The change's own PR body, commit messages and author-written logs are claims, not `cited` or `reproduced` evidence that a check ran or a behaviour holds.
+
 ## Lenses
 
 - Correctness: the line and the failure scenario.

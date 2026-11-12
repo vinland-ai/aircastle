@@ -127,7 +127,7 @@
       "lenses": ["correctness", "rules", "spec", "unknowns"],
       "mandatory": [
         "when executable behavior changes, observable outcomes and relevant failure cases written before implementation",
-        "when executable behavior changes, tests written first and seen failing for the intended reason",
+        "when executable behavior changes, the tests that cover the change fail for the intended reason when run on the base code and pass on the head, both reproduced by the reviewer; a missing export counts only for a new public interface",
         "when tests are added or changed, they exercise Aircastle code through the module's public interface"
       ],
       "optional": ["focused fault check of test sensitivity"],
@@ -145,7 +145,7 @@
       ],
       "allow_not_applicable": [
         "when executable behavior changes, observable outcomes and relevant failure cases written before implementation",
-        "when executable behavior changes, tests written first and seen failing for the intended reason",
+        "when executable behavior changes, the tests that cover the change fail for the intended reason when run on the base code and pass on the head, both reproduced by the reviewer; a missing export counts only for a new public interface",
         "when tests are added or changed, they exercise Aircastle code through the module's public interface"
       ]
     },
