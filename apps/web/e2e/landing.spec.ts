@@ -101,25 +101,43 @@ test.describe('landing-only build', () => {
     })
   }
 
-  for (const width of [1440, 390]) {
-    test(`Get started at ${width}px explains early access instead of opening the app`, async ({
-      page,
-    }) => {
-      await page.setViewportSize({ width, height: 800 })
+  for (const name of ['Get started', 'See Aircastle in action']) {
+    test(`${name} opens the early-access sign-in`, async ({ page }) => {
       const requests = recordRequests(page)
       await page.goto(landingUrl('/'))
       await expectLanding(page)
-      await page.getByRole('button', { name: 'Get started' }).click()
-      const dialog = page.getByRole('dialog', { name: 'Aircastle is in private early access' })
-      await expect(dialog).toBeVisible()
-      await expect(dialog).toContainText("Public sign-up isn't open yet.")
-      const box = await dialog.boundingBox()
-      expect(box!.x).toBeGreaterThanOrEqual(0)
-      expect(box!.x + box!.width).toBeLessThanOrEqual(width)
-      await expect(page).toHaveURL(landingUrl('/'))
-      await page.keyboard.press('Escape')
-      await expect(dialog).toBeHidden()
+      await page.getByRole('main').getByRole('link', { name }).click()
+      await expect(page).toHaveURL(landingUrl('/sign-in'))
+      await expect(page.getByRole('heading', { name: 'Sign in to Aircastle' })).toBeVisible()
       await expectOnlyStaticRequests(requests)
+    })
+  }
+
+  for (const [width, lines] of [
+    [1440, 1],
+    [1024, 1],
+    [640, 1],
+    [390, 2],
+  ] as const) {
+    test(`at ${width}px the early-access message takes ${lines} line${lines > 1 ? 's' : ''} and stays on screen`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 800 })
+      await page.goto(landingUrl('/sign-in'))
+      await page.getByRole('textbox', { name: 'Email' }).fill('reader@example.com')
+      await page.getByRole('button', { name: 'Continue with email' }).click()
+      const status = page.getByRole('status')
+      await expect(status).toHaveText(earlyAccessMessage)
+      const { height, lineHeight, right } = await status.evaluate((element) => ({
+        height: element.getBoundingClientRect().height,
+        lineHeight: parseFloat(getComputedStyle(element).lineHeight),
+        right: element.querySelector('span')!.getBoundingClientRect().right,
+      }))
+      expect(Math.round(height / lineHeight)).toBe(lines)
+      expect(right).toBeLessThanOrEqual(width)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width,
+      )
     })
   }
 

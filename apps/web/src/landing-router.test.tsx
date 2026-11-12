@@ -35,20 +35,13 @@ describe('landing-only router', () => {
     expect(screen.queryByRole('button', { name: 'Toggle Sidebar' })).toBeNull()
   })
 
-  it('links Open Aircastle to sign-in, hides Docs, and answers Get started with a notice', async () => {
-    const { router, user } = await renderLanding('/')
+  it('sends Open Aircastle, Get started and See Aircastle in action to sign-in, and hides Docs', async () => {
+    await renderLanding('/')
 
-    expect(screen.getByRole('link', { name: 'Open Aircastle' }).getAttribute('href')).toBe(
-      '/sign-in',
-    )
+    for (const name of ['Open Aircastle', 'Get started', 'See Aircastle in action']) {
+      expect(screen.getByRole('link', { name }).getAttribute('href')).toBe('/sign-in')
+    }
     expect(screen.queryByRole('link', { name: 'Documentation' })).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Get started' }))
-
-    const notice = await screen.findByRole('dialog', {
-      name: 'Aircastle is in private early access',
-    })
-    expect(notice.textContent).toContain("Public sign-up isn't open yet.")
-    expect(router.state.location.pathname).toBe('/')
   })
 
   it('answers every sign-in with the early-access message and sends nothing', async () => {

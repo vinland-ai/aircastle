@@ -62,7 +62,7 @@ export function SignInPage({ earlyAccess = false }: { earlyAccess?: boolean }) {
             </FieldGroup>
           </form>
           {earlyAccess ? (
-            <p role="status" className="text-base text-foreground">
+            <p role="status" className="text-base text-foreground sm:whitespace-nowrap">
               {refusals > 0 && (
                 <span key={refusals}>
                   Aircastle is in private early access. You're not on the access list yet.

@@ -1,40 +1,14 @@
 import { Link } from '@tanstack/react-router'
 import { ArrowRightIcon } from 'lucide-react'
-import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverTitle,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import { Header } from './header'
 import { ProductDemo } from './product-demo'
 import { RotatingWord } from './rotating-word'
 
 const heroWords = ['write', 'research', 'publish', 'audit'] as const
-const getStartedClassName =
-  'inline-flex items-center rounded-lg bg-primary px-4 py-2 font-[400] text-primary-foreground transition-colors hover:bg-primary/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
+const seeInActionClassName =
+  'group inline-flex items-center gap-1.5 rounded-lg px-0 py-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:px-4'
 
-function EarlyAccessGetStarted() {
-  return (
-    <Popover>
-      <PopoverTrigger className={getStartedClassName}>Get started</PopoverTrigger>
-      <PopoverContent
-        data-theme-scope="marketing"
-        align="start"
-        sideOffset={8}
-        className="w-80 gap-1 p-4"
-      >
-        <PopoverTitle className="font-[400] text-foreground">
-          Aircastle is in private early access
-        </PopoverTitle>
-        <PopoverDescription>Public sign-up isn't open yet.</PopoverDescription>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-/** The public landing page. `earlyAccess` hides links into unbuilt pages and keeps visitors out of the app. */
+/** The public landing page. `earlyAccess` hides links into unbuilt pages and sends every call to action to sign-in. */
 export function MarketingPage({ earlyAccess = false }: { earlyAccess?: boolean }) {
   return (
     <div data-theme-scope="marketing" className="flex min-h-svh flex-col">
@@ -68,23 +42,29 @@ export function MarketingPage({ earlyAccess = false }: { earlyAccess?: boolean }
             take on the busywork, so you can publish more than ever before.
           </p>
           <div className="mt-8 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2 md:mt-10">
-            {earlyAccess ? (
-              <EarlyAccessGetStarted />
-            ) : (
-              <Link to="/sign-in" className={getStartedClassName}>
-                Get started
-              </Link>
-            )}
-            <a
-              href="#product-demo"
-              className="group inline-flex items-center gap-1.5 rounded-lg px-0 py-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:px-4"
+            <Link
+              to="/sign-in"
+              className="inline-flex items-center rounded-lg bg-primary px-4 py-2 font-[400] text-primary-foreground transition-colors hover:bg-primary/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
-              See Aircastle in action
-              <ArrowRightIcon
-                aria-hidden="true"
-                className="size-5 transition-transform group-hover:translate-x-0.5"
-              />
-            </a>
+              Get started
+            </Link>
+            {earlyAccess ? (
+              <Link to="/sign-in" className={seeInActionClassName}>
+                See Aircastle in action
+                <ArrowRightIcon
+                  aria-hidden="true"
+                  className="size-5 transition-transform group-hover:translate-x-0.5"
+                />
+              </Link>
+            ) : (
+              <a href="#product-demo" className={seeInActionClassName}>
+                See Aircastle in action
+                <ArrowRightIcon
+                  aria-hidden="true"
+                  className="size-5 transition-transform group-hover:translate-x-0.5"
+                />
+              </a>
+            )}
           </div>
         </section>
         <ProductDemo />
