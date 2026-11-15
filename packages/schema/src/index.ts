@@ -42,5 +42,6 @@ export {
 export type { InferInput, InferOutput, InferRead } from "./schema/declarations.ts";
 export { compileSchema } from "./schema/compile.ts";
 export { SchemaError } from "./schema/errors.ts";
+export { isEmail } from "./schema/formats.ts";
 export { isMember, isPlainRecord } from "./schema/records.ts";
 export type { CollectionDefinitions } from "./schema/declarations.ts";

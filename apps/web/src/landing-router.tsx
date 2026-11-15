@@ -1,9 +1,26 @@
-import { createRoute, createRouter, redirect, type RouterHistory } from '@tanstack/react-router'
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  redirect,
+  type RouterHistory,
+} from '@tanstack/react-router'
+import App from './App'
 import { MarketingPage } from '@/features/marketing'
-import { SignInPage } from '@/features/sign-in'
-import { landingTitle, signInTitle } from '@/metadata'
-import { rootRoute } from './root-route'
+import { NotFoundPage } from '@/features/not-found'
+import { EarlyAccessSignInPage } from '@/features/sign-in'
+import { landingDescription, landingTitle, signInTitle } from '@/metadata'
 
+const rootRoute = createRootRoute({
+  component: () => (
+    <App>
+      <Outlet />
+    </App>
+  ),
+  notFoundComponent: NotFoundPage,
+  head: () => ({ meta: [{ name: 'description', content: landingDescription }] }),
+})
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
@@ -14,7 +31,7 @@ const signInRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/sign-in',
   head: () => ({ meta: [{ title: signInTitle }] }),
-  component: () => <SignInPage earlyAccess />,
+  component: EarlyAccessSignInPage,
 })
 const everyOtherRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -26,7 +43,7 @@ const everyOtherRoute = createRoute({
 
 /**
  * The landing-only build's router, which replaces `router.tsx` when Vite builds with `--mode landing`.
- * It serves the landing page and an early-access sign-in, and sends every other path to `/`.
+ * It serves the landing page and an early-access sign-in without authentication, and sends every other path to `/`.
  */
 export function createAppRouter(history: RouterHistory) {
   return createRouter({

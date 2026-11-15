@@ -22,7 +22,7 @@ Create your local environment file at the repository root:
 cp .env.example .env
 ```
 
-Both apps read the root `.env`; no `.env` files are needed in `apps/api` or `apps/web`. Exported shell variables take precedence. Set `PORT` in the root file to change the API port and the web app's `/api` proxy together. Only `VITE_*` variables are exposed to browser code; keep secrets unprefixed. Restart the development servers after changing environment values.
+Both apps read the root `.env`; no `.env` files are needed in `apps/api` or `apps/web`. Exported shell variables take precedence. Set `AIRCASTLE_PORT` in the root file to change the API port and the web app's `/api` proxy together. Only `VITE_*` variables are exposed to browser code; keep secrets out of `VITE_*` variables. Restart the development servers after changing environment values.
 
 Start the web app on port 43121:
 
@@ -36,15 +36,25 @@ Set up [local Postgres](#local-postgres), then start the API on port 43122:
 vp run dev-api
 ```
 
-The API uses port 43122 in both development and built runs. Override it with `PORT`; override the web app's port with `vp run dev-web -- --port <port>`. An occupied port stops startup rather than selecting another port.
+The API uses port 43122 in both development and built runs. Override it with `AIRCASTLE_PORT`; override the web app's port with `vp run dev-web -- --port <port>`. An occupied port stops startup rather than selecting another port.
 
-Open [API documentation](http://localhost:43122/api/docs) or its [OpenAPI document](http://localhost:43122/api/openapi.json). The documentation UI loads a pinned Scalar script from jsDelivr and requires internet access.
+Open [API documentation](http://localhost:43122/api/docs) or its [OpenAPI document](http://localhost:43122/api/openapi.json). The API serves the documentation UI's pinned Scalar script itself, so the page works offline.
 
-The API validates its environment variables at startup and exits if one is invalid. `DATABASE_URL` is required and must not be empty. `PORT` must be an integer from 1 to 65535. `LOG_LEVEL` defaults to `info` and accepts Pino's levels, including `silent`.
+The API validates its environment variables at startup and exits if one is invalid. `AIRCASTLE_PORT` must be an integer from 1 to 65535. `AIRCASTLE_HOST` sets the listen address and defaults to `127.0.0.1`, so other machines on your network can't reach the API; it must be an IP address. `AIRCASTLE_LOG_LEVEL` defaults to `info` and accepts Pino's levels, including `silent`. `NODE_ENV` remains the standard runtime/build variable; use `AIRCASTLE_ENV` for Aircastle mode.
 
-Start both apps concurrently with `vp run dev`.
+Start both apps concurrently with `vp run dev`. The dev servers load workspace TypeScript source, so no initial `vp run build` is needed.
 
-The web dev server and local preview forward `/api` requests to the API, so browser code can use relative URLs such as `/api/health`. To change the API port for both servers, use `PORT=43130 vp run dev`.
+The example environment enables local authentication at `http://localhost:43121`. Open that address to create the first super user. Open verification emails at `/development-inbox`; no email service is needed. Accounts are created after confirming the link. Set `AIRCASTLE_URL` to match if you change the browser's loopback address or port.
+
+To run the built application and Postgres together:
+
+```sh
+docker compose --env-file /dev/null -f compose.development.yaml up --build
+```
+
+Open `http://127.0.0.1:43121`. This Compose file enables development auth and keeps database data across container recreation. An image launched independently has local auth disabled unless `AIRCASTLE_ENV=development` and a loopback `AIRCASTLE_URL` are supplied. The image listens on every container interface, so publish its port on loopback only, for example `-p 127.0.0.1:43121:8080`. Production authentication is not included in this local workflow.
+
+The web dev server and local preview forward `/api` requests to the API, so browser code can use relative URLs such as `/api/health`. To change the API port for both servers, use `AIRCASTLE_PORT=43130 vp run dev`.
 
 Run common commands from the repository root:
 
@@ -71,9 +81,9 @@ vp -C apps/web exec playwright install chromium
 vp run test-web:e2e
 ```
 
-Playwright builds the web app three times, with its real data, with fixture data, and as the landing page alone, and serves each build until the run ends. The normal build listens on `WEB_E2E_PORT`, which defaults to 43124, and the fixture and landing builds listen on the next two ports. An occupied port stops the run. To run browser journeys in two worktrees at once, give each run its own port, for example `WEB_E2E_PORT=43224 vp run test-web:e2e`. The journeys do not require the API or Postgres for the current shell.
+Playwright builds the web app three times, with its real data, with fixture data, and as the landing page alone, and serves each build until the run ends. The normal build listens on `WEB_E2E_PORT`, which defaults to 43124, the fixture build listens on the next port, the auth journey server listens on the port after that, and the landing build listens on the next one. An occupied port stops the run. To run browser journeys in two worktrees at once, give each run its own port, for example `WEB_E2E_PORT=43224 vp run test-web:e2e`. Auth journeys also start a real API and a disposable Postgres, so they require Docker.
 
-Each run overwrites its reports in `apps/web/reports/`. `html/` holds the HTML report, `results.json` holds the JSON results, `test-results/` holds traces and screenshots of failed tests, and `build/normal/`, `build/fixture/` and `build/landing/` hold the three builds. Open the HTML report with `vp -C apps/web exec playwright show-report reports/html`. Run a focused scenario with `vp run test-web:e2e stress.spec.ts --grep long-text`.
+Each run overwrites its reports in `apps/web/reports/`. `html/` holds the HTML report, `results.json` holds the JSON results, `test-results/` holds traces and screenshots of failed tests, and `build/normal/`, `build/fixture/` and `build/landing/` hold the three builds. Open the HTML report with `vp -C apps/web exec playwright show-report reports/html`. To record a video of every auth journey, run `vp run test-auth:record`. Each test saves `video.webm` in its folder under `test-results/`. Normal runs record no video. To check the local auth workflow in the built Docker image, run `vp run test-auth:image`. It builds the image, starts its own Compose project on a free loopback port, and removes the containers, volumes and image afterwards. It takes a few minutes and isn't part of `vp run test`. Run a focused scenario with `vp run test-web:e2e stress.spec.ts --grep long-text`.
 
 ## Local Postgres
 
@@ -84,11 +94,11 @@ cp .env.example .env
 vp run dev-db
 ```
 
-Postgres listens on `127.0.0.1:43123`. The example contains local-only credentials and a `DATABASE_URL` for application development. The API uses `DATABASE_URL` and reads the root `.env` in development and local built runs. `AIRCASTLE_DATABASE_NAMESPACE` selects the owned SQL namespace and defaults to `aircastle`. The API refuses a namespace that belongs to another application.
+Postgres listens on `127.0.0.1:43123`. The example supplies `AIRCASTLE_DB_HOST`, `AIRCASTLE_DB_PORT`, `AIRCASTLE_DB_NAME`, `AIRCASTLE_DB_USER`, and `AIRCASTLE_DB_PASSWORD`. Their defaults are `127.0.0.1`, `43123`, `aircastle`, `aircastle`, and `aircastle-local`. The API and `dev:setup` build their connection from these settings. These local defaults apply only when `AIRCASTLE_ENV=development`. Otherwise, supply all five settings or an explicit `AIRCASTLE_DATABASE_URL`; missing configuration stops startup. Set `AIRCASTLE_DATABASE_URL` to override all five, including connection options such as SSL. An explicitly empty or invalid URL fails configuration rather than falling back. Both commands read the root `.env`. `AIRCASTLE_DATABASE_NAMESPACE` selects the owned SQL namespace and defaults to `aircastle`. The API refuses a namespace that belongs to another application. Compose uses the configured database name and credentials when initializing new storage; changing them does not alter an existing database. The bundled app container connects to `postgres:5432` internally, while `AIRCASTLE_DB_PORT` selects the host port.
 
 `dev-db` runs `db:up` and waits for readiness. `vp run db:down` removes the container but preserves its data. `vp run db:logs` follows database logs. **`vp run db:reset` deletes this Compose project's database data.** Run `db:up` again to create an empty database.
 
-Compose names resources after the checkout directory. For concurrent worktrees, use distinct directory names and set a different `AIRCASTLE_DB_PORT` in each `.env`; update its `DATABASE_URL` port to match. Do not share a `COMPOSE_PROJECT_NAME` between independent checkouts.
+Compose names resources after the checkout directory. For concurrent worktrees, use distinct directory names and set a different `AIRCASTLE_DB_PORT` in each `.env`. The default connection uses that port automatically. If you override `AIRCASTLE_DATABASE_URL`, keep its port in sync yourself. Do not share a `COMPOSE_PROJECT_NAME` between independent checkouts.
 
 Run a command against a disposable database:
 
@@ -96,7 +106,7 @@ Run a command against a disposable database:
 vp run db:test -- vp run test-api
 ```
 
-The wrapper uses the same Compose file and pinned image. Each invocation gets a unique project, volume and automatically assigned localhost port. It supplies `DATABASE_URL` to the command, overriding any inherited value. It preserves the command's exit status and deletes its database after success, failure, Ctrl-C or termination. Forced kills and Docker outages can prevent cleanup; the wrapper prints its project name for recovery with `docker compose -p <project> -f compose.yaml down --volumes`.
+The wrapper uses the same Compose file and pinned image. Each invocation gets a unique project, volume and automatically assigned localhost port. It supplies `AIRCASTLE_DATABASE_URL` to the command, overriding any inherited value. It preserves the command's exit status and deletes its database after success, failure, Ctrl-C or termination. Forced kills and Docker outages can prevent cleanup; the wrapper prints its project name for recovery with `docker compose -p <project> -f compose.yaml down --volumes`.
 
 The full `vp run test` and `vp run check` commands require Docker and create disposable databases automatically. `vp run check` also runs web browser journeys, which need the Chromium installation described above, and lints workflows with [actionlint](https://github.com/rhysd/actionlint), which must be on your `PATH`.
 

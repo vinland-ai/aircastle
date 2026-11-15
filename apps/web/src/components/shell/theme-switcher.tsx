@@ -1,12 +1,12 @@
 import { MoonIcon, SunIcon } from 'lucide-react'
-import { useTheme } from 'next-themes'
+import { useTheme } from '@/features/theme'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 /** A one-click switch between dark and light, pressed while the dark theme is on. */
 export function ThemeSwitcher({ className }: { className?: string }) {
-  const { resolvedTheme, setTheme } = useTheme()
-  const dark = resolvedTheme !== 'light'
+  const { theme, setTheme } = useTheme()
+  const dark = theme === 'dark'
 
   return (
     <Tooltip>

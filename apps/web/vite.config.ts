@@ -8,6 +8,7 @@ import { defineConfig, lazyPlugins, loadEnv, type Plugin } from 'vite-plus'
 const source = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 const envDir = fileURLToPath(new URL('../../', import.meta.url))
 const fixtureModules = new Map([
+  [source('./src/main.tsx'), source('./e2e/fixture-entry.tsx')],
   [source('./src/components/shell/data.ts'), source('./e2e/fixture-modules/shell-data.ts')],
   [
     source('./src/features/navigation/pages.ts'),
@@ -40,6 +41,7 @@ export default defineConfig(({ mode }) => {
   return {
     envDir,
     test: {
+      fsModuleCachePath: fileURLToPath(new URL('./node_modules/.vitest-cache', import.meta.url)),
       environment: 'happy-dom',
       include: ['src/**/*.test.{ts,tsx}'],
       allowOnly: false,
@@ -54,12 +56,13 @@ export default defineConfig(({ mode }) => {
     },
     resolve: { alias: [{ find: '@', replacement: source('./src') }] },
     server: {
+      headers: { 'Referrer-Policy': 'no-referrer' },
       port: 43121,
       strictPort: true,
       proxy:
         mode === 'landing'
           ? {}
-          : { '^/api(?:/|$)': { target: `http://127.0.0.1:${env.PORT ?? 43122}` } },
+          : { '^/api(?:/|$)': { target: `http://127.0.0.1:${env.AIRCASTLE_PORT ?? 43122}` } },
     },
     preview: { port: 43121, strictPort: true },
     plugins:

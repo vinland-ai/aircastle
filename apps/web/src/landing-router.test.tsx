@@ -61,7 +61,7 @@ describe('landing-only router', () => {
     await user.type(email, 'x')
     expect(status.textContent).toBe('')
 
-    await user.click(screen.getByRole('button', { name: 'Continue with email' }))
+    await user.click(screen.getByRole('button', { name: 'Send sign-in link' }))
     expect(status.textContent).toBe(earlyAccessMessage)
     expect(router.state.location.pathname).toBe('/sign-in')
     expect(fetch).not.toHaveBeenCalled()

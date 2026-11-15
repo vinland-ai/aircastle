@@ -84,7 +84,7 @@ test.describe('landing-only build', () => {
     }
 
     await page.goto(landingUrl('/sign-in'))
-    await expect(page.getByRole('heading', { name: 'Sign in to Aircastle' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
     await expect(page.getByText('Terms of Service')).toHaveCount(0)
     await expect(page.getByText('Privacy Policy')).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'Learn more' })).toHaveCount(0)
@@ -108,7 +108,7 @@ test.describe('landing-only build', () => {
       await expectLanding(page)
       await page.getByRole('main').getByRole('link', { name }).click()
       await expect(page).toHaveURL(landingUrl('/sign-in'))
-      await expect(page.getByRole('heading', { name: 'Sign in to Aircastle' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
       await expectOnlyStaticRequests(requests)
     })
   }
@@ -125,7 +125,7 @@ test.describe('landing-only build', () => {
       await page.setViewportSize({ width, height: 800 })
       await page.goto(landingUrl('/sign-in'))
       await page.getByRole('textbox', { name: 'Email' }).fill('reader@example.com')
-      await page.getByRole('button', { name: 'Continue with email' }).click()
+      await page.getByRole('button', { name: 'Send sign-in link' }).click()
       const status = page.getByRole('status')
       await expect(status).toHaveText(earlyAccessMessage)
       const { height, lineHeight, right } = await status.evaluate((element) => ({
@@ -143,10 +143,10 @@ test.describe('landing-only build', () => {
 
   test('signing in shows the early-access message without a network request', async ({ page }) => {
     await page.goto(landingUrl('/sign-in'))
-    await expect(page.getByRole('heading', { name: 'Sign in to Aircastle' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
     const requests = recordRequests(page)
     const email = page.getByRole('textbox', { name: 'Email' })
-    const submit = page.getByRole('button', { name: 'Continue with email' })
+    const submit = page.getByRole('button', { name: 'Send sign-in link' })
 
     await submit.click()
     await expect(email).toBeFocused()

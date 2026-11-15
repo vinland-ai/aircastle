@@ -86,10 +86,22 @@ const deliberateCatchAllowances: Readonly<Record<string, { count: number; reason
     count: 1,
     reason: "Shutdown reports any close failure as exit code 1.",
   },
+  "apps/api/src/features/auth/credentials.ts": {
+    count: 1,
+    reason: "Any inbox preparation failure is a delivery failure that keeps the previous link.",
+  },
+  "apps/api/src/features/auth/request.ts": {
+    count: 1,
+    reason: "An unreadable or malformed auth request body is treated as missing input.",
+  },
   "apps/api/src/features/content/request.ts": {
     count: 2,
     reason:
       "A failed request body stream is an invalid request, and cancelling an oversized body is best effort before payload_too_large.",
+  },
+  "apps/web/src/features/auth/http.ts": {
+    count: 1,
+    reason: "Any transport or response-body failure is shown as a temporary failure.",
   },
   "packages/core/src/index.ts": {
     count: 1,
