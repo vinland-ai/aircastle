@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => {
   return {
     envDir,
     test: {
+      fsModuleCachePath: fileURLToPath(new URL('./node_modules/.vitest-cache', import.meta.url)),
       environment: 'happy-dom',
       include: ['src/**/*.test.{ts,tsx}'],
       allowOnly: false,

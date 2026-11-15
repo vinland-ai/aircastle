@@ -1,7 +1,9 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   test: {
+    fsModuleCachePath: fileURLToPath(new URL("./node_modules/.vitest-cache", import.meta.url)),
     include: ["tests/**/*.test.ts"],
     environment: "node",
     maxWorkers: 2,
