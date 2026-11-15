@@ -150,7 +150,13 @@
     },
     {
       "id": "api-app",
-      "globs": ["apps/api/*", "apps/api/src/*"],
+      "globs": [
+        "apps/api/*",
+        "apps/api/src/*",
+        "apps/api/src/features/auth/**",
+        "apps/api/src/features/development-inbox/**",
+        "apps/api/src/test-support/**"
+      ],
       "shared_inputs": [
         "package.json",
         "bun.lock",
@@ -335,7 +341,14 @@
     },
     {
       "id": "web-app",
-      "globs": ["apps/web/*", "apps/web/src/*", "apps/web/scripts/**", "apps/web/public/**"],
+      "globs": [
+        "apps/web/*",
+        "apps/web/src/*",
+        "apps/web/scripts/**",
+        "apps/web/public/**",
+        "apps/web/src/features/auth/**",
+        "apps/web/src/features/theme/**"
+      ],
       "shared_inputs": [
         "package.json",
         "bun.lock",
@@ -441,7 +454,12 @@
         ".gitignore",
         ".env.example",
         ".vite-hooks/**",
-        "compose.yaml"
+        "compose.yaml",
+        "Dockerfile",
+        ".dockerignore",
+        "compose.development.yaml",
+        "vite.image.config.ts",
+        "patches/**"
       ],
       "shared_inputs": [
         "package.json",
