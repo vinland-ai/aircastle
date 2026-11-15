@@ -1,5 +1,4 @@
 import type { ProtectedDestination } from "@aircastle/contracts";
-import type { AuthLimitScope } from "./admission.ts";
 
 export type { AuthDestination, ProtectedDestination } from "@aircastle/contracts";
 
@@ -99,12 +98,3 @@ export class AuthStorageError extends Error {
       this.code = options.code;
   }
 }
-
-export type AuthEvent =
-  | { kind: "request-blocked"; scopes: readonly AuthLimitScope[] }
-  | {
-      kind: "sign-in-failed";
-      reason: "unknown-identity" | "invalid-link" | "superseded-link" | "setup-complete";
-    }
-  | { kind: "delivery-failed" }
-  | { kind: "storage-unavailable"; code?: string };
