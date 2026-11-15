@@ -6,5 +6,5 @@ Follow [the architecture map](../ARCHITECTURE.md) for tooling ownership.
 - `mutation.yml` runs full schema and contract mutation testing nightly or on demand. It is not a pull-request check.
 - `rulesets/main-protection.json` requires the `Lint, typecheck and test` check with strict up-to-date enforcement and prevents force pushes and deletions, with no bypass. It replaces existing ruleset 25795103 in place. `rulesets/main-pull-requests.json` requires squash pull requests and code-owner review, dismisses stale reviews, and allows the repository-admin role to bypass only the pull-request rule. The owner creates and verifies the pull-request ruleset before rewriting the existing protection ruleset. Keep the required check passing on the current base before landing. The squash commit credits commit authors as co-authors.
 - `CODEOWNERS` names the paths whose PRs the repository owner reviews before merge: workflows and automation, agent instructions, auth, migrations and public documentation. Agents open PRs as `abyan-ai-integration` so the owner can approve them.
-- Workflows run no AI models. AI review and the gardener audit run locally.
+- Workflows run no AI models. AI review runs locally.
 - Pin third-party actions by full commit SHA. Keep ordinary pull-request CI read-only and checkout credential persistence disabled.

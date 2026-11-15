@@ -79,7 +79,3 @@ Apply these rules to README.md, guides, reference docs, and other public copy.
 - Describe concrete behavior and instructions. Support claims with evidence or named sources; distinguish planned features from shipped behavior.
 - Cut hype, filler, jargon, metaphors, chatbot phrases, vague claims, and needless hedging. Avoid stock contrasts such as "not just X, but Y" and forced lists of three.
 - Use sentence case headings and straight quotes. Avoid em dashes, decorative emoji, excessive bold, and fragments that make readers decode the text.
-
-## Factory
-
-`.factory/` holds the factory policy, unit map, provider tiers and review rubric. The factory evaluates changes against the base policy and never lands a PR with an unsatisfied owner hold. Merge authority is disabled until the owner enables it.
