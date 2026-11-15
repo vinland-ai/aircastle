@@ -110,12 +110,16 @@ test("verification scopes follow the affected concern without adding unrelated w
       ["default", "behaviour", "api", "docs"],
     ],
   ];
+  const scopes = Object.entries(policy.verification);
+  const globs = [...new Set(scopes.flatMap(([, scope]) => scope.paths ?? []))];
+  const matches = engineMatches(globs, [...new Set(cases.flatMap(([paths]) => paths))]);
+  const matchedBy = new Map(globs.map((glob, index) => [glob, new Set(matches[index])]));
   for (const [paths, expected] of cases) {
-    const applicable = Object.entries(policy.verification)
+    const applicable = scopes
       .filter(
         ([, scope]) =>
           (scope.paths?.length ?? 0) === 0 ||
-          engineMatches(scope.paths ?? [], paths).flat().length > 0,
+          (scope.paths ?? []).some((glob) => paths.some((path) => matchedBy.get(glob)?.has(path))),
       )
       .map(([name]) => name);
     expect(applicable.sort(), paths.join(", ")).toEqual([...expected].sort());
