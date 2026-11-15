@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { test, expect } from './support'
+import { fixtureTest as test, expect } from './support'
 import { themeStorageKey } from '../src/theme'
 
 async function expectPaint(element: Locator, background: string, foreground?: string) {
@@ -27,7 +27,7 @@ async function expectPaint(element: Locator, background: string, foreground?: st
 }
 
 async function expectPublic(page: Page, dark: boolean) {
-  await expect(page.getByRole('heading', { name: 'Sign in to Aircastle' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
   await expectPaint(
     page.locator('body'),
     dark ? 'oklch(0.145 0 0)' : 'oklch(1 0 0)',
@@ -38,13 +38,15 @@ async function expectPublic(page: Page, dark: boolean) {
     'border-right-color',
     dark ? 'oklch(1 0 0 / 0.1)' : 'oklch(0.922 0 0)',
   )
-  const submit = page.getByRole('button', { name: 'Continue with email' })
-  await expect(submit).toBeDisabled()
+  const submit = page.getByRole('button', { name: 'Send sign-in link' })
+  await expect(submit).toBeEnabled()
   await expectPaint(
     submit,
     dark ? 'oklch(0.922 0 0)' : 'oklch(0.205 0 0)',
     dark ? 'oklch(0.205 0 0)' : 'oklch(0.985 0 0)',
   )
+  await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toBeFocused()
+  await page.getByRole('textbox', { name: 'Email', exact: true }).blur()
   const inputGroup = page.locator('[data-slot="input-group"]')
   await expectPaint(inputGroup, dark ? 'oklab(1 0 0 / 0.045)' : 'rgba(0, 0, 0, 0)')
   await expect(inputGroup).toHaveCSS(
@@ -58,7 +60,7 @@ async function expectPublic(page: Page, dark: boolean) {
   await expect(
     page.locator('main > div').nth(1).getByText('Aircastle', { exact: true }),
   ).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: 'Sign in to Aircastle' })).toHaveCSS(
+  await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toHaveCSS(
     'font-weight',
     '400',
   )
@@ -69,13 +71,13 @@ async function expectPublic(page: Page, dark: boolean) {
   if (!homeBox || !artBox) throw new Error('Home link is not laid out')
   expect(homeBox.x - artBox.x, 'tucked into the art card').toBeLessThan(48)
   expect(homeBox.y - artBox.y).toBeLessThan(48)
-  const heading = page.getByRole('heading', { name: 'Sign in to Aircastle' })
+  const heading = page.getByRole('heading', { name: 'Sign in', exact: true })
   expect(
     parseFloat(await heading.evaluate((element) => getComputedStyle(element).fontSize)),
     'a heading sized for the page',
   ).toBeGreaterThanOrEqual(32)
   const email = page.getByRole('textbox', { name: 'Email', exact: true })
-  const submitBox = await page.getByRole('button', { name: 'Continue with email' }).boundingBox()
+  const submitBox = await page.getByRole('button', { name: 'Send sign-in link' }).boundingBox()
   const groupBox = await page.locator('[data-slot="input-group"]').boundingBox()
   expect(groupBox?.height ?? 0, 'a roomy email field').toBeGreaterThanOrEqual(44)
   expect(submitBox?.height ?? 0, 'a roomy button').toBeGreaterThanOrEqual(44)

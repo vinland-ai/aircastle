@@ -1,33 +1,11 @@
-import { HeadContent, Outlet } from '@tanstack/react-router'
-import { ThemeProvider, useTheme } from 'next-themes'
-import { useEffect } from 'react'
-import { themeFavicons, themeStorageKey } from '@/theme'
+import { HeadContent } from '@tanstack/react-router'
+import { ThemeProvider } from '@/features/theme'
 
-function ThemeFavicon() {
-  const { resolvedTheme } = useTheme()
-
-  useEffect(() => {
-    if (!resolvedTheme) return
-    document
-      .querySelector('link[rel="icon"]')
-      ?.setAttribute('href', themeFavicons[resolvedTheme === 'dark' ? 'dark' : 'light'])
-  }, [resolvedTheme])
-
-  return null
-}
-
-function App() {
+function App({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="dark"
-      themes={['light', 'dark']}
-      storageKey={themeStorageKey}
-      enableSystem={false}
-    >
-      <ThemeFavicon />
+    <ThemeProvider>
       <HeadContent />
-      <Outlet />
+      {children}
     </ThemeProvider>
   )
 }

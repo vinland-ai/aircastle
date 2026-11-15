@@ -1,11 +1,9 @@
 import { Link } from '@tanstack/react-router'
-import { AtSignIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { CloudArt } from './cloud-art'
+import { AuthForm, ConfirmationPage, useAuth } from '@/features/auth'
 
-export function SignInPage() {
+export function SignInPage({ purpose = 'sign-in' }: { purpose?: 'setup' | 'sign-in' }) {
+  const { view } = useAuth()
   return (
     <main
       data-theme-scope="marketing"
@@ -23,34 +21,16 @@ export function SignInPage() {
           >
             <span aria-hidden="true" className="brand-logo block size-10 shrink-0" />
           </Link>
-          <h1 className="mb-3 text-[2rem] leading-tight font-[400] tracking-tight">
-            Sign in to Aircastle
-          </h1>
-          <form onSubmit={(event) => event.preventDefault()}>
-            <FieldGroup className="gap-3">
-              <Field>
-                <FieldLabel className="sr-only" htmlFor="email">
-                  Email
-                </FieldLabel>
-                <InputGroup className="h-12 text-base">
-                  <InputGroupInput
-                    id="email"
-                    name="email"
-                    placeholder="your.email@example.com"
-                    type="email"
-                    autoComplete="email"
-                    className="text-base md:text-base"
-                  />
-                  <InputGroupAddon align="inline-start">
-                    <AtSignIcon aria-hidden="true" />
-                  </InputGroupAddon>
-                </InputGroup>
-              </Field>
-              <Button className="h-12 w-full text-base" type="submit" disabled>
-                Continue with email
-              </Button>
-            </FieldGroup>
-          </form>
+          {view.kind === 'confirming' ? (
+            <ConfirmationPage key={view.confirmation.token} confirmation={view.confirmation} />
+          ) : (
+            <>
+              <h1 className="mb-3 text-[2rem] leading-tight font-[400] tracking-tight">
+                {purpose === 'setup' ? 'Create your super user account' : 'Sign in'}
+              </h1>
+              <AuthForm purpose={purpose} />
+            </>
+          )}
           <p className="mt-6 text-base text-muted-foreground">
             By clicking continue, you agree to our{' '}
             <a
