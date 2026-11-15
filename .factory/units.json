@@ -291,7 +291,47 @@
         "apps/web/*",
         "apps/web/src/*"
       ],
-      "depends_on": ["web-ui"]
+      "depends_on": ["web-ui", "web-brand"]
+    },
+    {
+      "id": "web-brand",
+      "globs": ["apps/web/src/components/brand/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/web/*",
+        "apps/web/src/*"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "web-marketing",
+      "globs": ["apps/web/src/features/marketing/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/web/*",
+        "apps/web/src/*"
+      ],
+      "depends_on": ["web-ui", "web-brand", "web-shell", "web-navigation"]
     },
     {
       "id": "web-app",
@@ -317,7 +357,8 @@
         "web-navigation",
         "web-error-recovery",
         "web-not-found",
-        "web-sign-in"
+        "web-sign-in",
+        "web-marketing"
       ]
     },
     {
