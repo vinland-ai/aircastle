@@ -33,3 +33,9 @@ export async function readMountProbe(page: Page, probe: Probe) {
     probe,
   )
 }
+
+export async function resetShellProbe(page: Page) {
+  await page.evaluate(() => {
+    Reflect.get(window, 'authShellFlashes').length = 0
+  })
+}
