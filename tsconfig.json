@@ -20,5 +20,5 @@
     "noEmit": true,
     "customConditions": ["development"]
   },
-  "include": ["scripts/**/*.ts", "tests/**/*.ts"]
+  "include": ["infra/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"]
 }

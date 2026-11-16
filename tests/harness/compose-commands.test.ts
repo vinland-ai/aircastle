@@ -29,14 +29,17 @@ function unrootedComposeCommands(file: string, text: string): string[] {
 }
 
 const readsComposeFilesAsData: Record<string, string> = {
-  "tests/docker-image.test.ts": "parses the development Compose file without running Compose",
+  "infra/docker/docker-image.test.ts":
+    "parses the development Compose file without running Compose",
   "tests/harness/compose-commands.test.ts": "holds this guard's flagged and accepted fixtures",
 };
 
 const trackedFiles = execFileSync("git", ["ls-files"], { encoding: "utf8" })
   .split("\n")
   .filter((file) => /\.(?:[cm]?[jt]sx?|json|md|ya?ml)$/.test(file))
-  .filter((file) => !file.startsWith("infra/docker/") && !(file in readsComposeFilesAsData));
+  .filter(
+    (file) => !file.startsWith("infra/docker/compose.") && !(file in readsComposeFilesAsData),
+  );
 
 test("every Compose command for infra/docker sets the repository root as its project directory", () => {
   const texts = trackedFiles.map((file) => [file, readFileSync(file, "utf8")] as const);
@@ -45,10 +48,10 @@ test("every Compose command for infra/docker sets the repository root as its pro
   ).toEqual(
     expect.arrayContaining([
       "README.md",
+      "infra/docker/auth-image.journey.ts",
+      "infra/docker/with-postgres.journey.ts",
+      "infra/docker/with-postgres.ts",
       "package.json",
-      "scripts/postgres.integration.test.ts",
-      "scripts/with-postgres.ts",
-      "tests/auth-image.journey.ts",
     ]),
   );
   expect(texts.flatMap(([file, text]) => unrootedComposeCommands(file, text))).toEqual([]);

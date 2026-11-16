@@ -9,7 +9,7 @@ if (!command.length) {
   process.exit(2);
 }
 
-const root = fileURLToPath(new URL("../", import.meta.url));
+const root = fileURLToPath(new URL("../../", import.meta.url));
 const project = `aircastle-test-${randomUUID()}`;
 const env = {
   ...process.env,

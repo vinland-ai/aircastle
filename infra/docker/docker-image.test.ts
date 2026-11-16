@@ -2,8 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { expect, test } from "vite-plus/test";
 import { parse } from "yaml";
 
-const read = (file: string) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
-const exists = (file: string) => existsSync(new URL(`../${file}`, import.meta.url));
+const read = (file: string) => readFileSync(new URL(`../../${file}`, import.meta.url), "utf8");
+const exists = (file: string) => existsSync(new URL(`../../${file}`, import.meta.url));
 
 test("the application image uses the repository's pinned Bun and Node versions", () => {
   const images = [...read("infra/docker/Dockerfile").matchAll(/^FROM (\S+)/gm)].map(
