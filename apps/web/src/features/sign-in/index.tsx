@@ -1,59 +1,22 @@
-import { Link } from '@tanstack/react-router'
-import { CloudArt } from './cloud-art'
 import { AuthForm, ConfirmationPage, useAuth } from '@/features/auth'
+import { SignInHeading, SignInLayout } from './layout'
+
+export { EarlyAccessSignInPage } from './early-access'
 
 export function SignInPage({ purpose = 'sign-in' }: { purpose?: 'setup' | 'sign-in' }) {
   const { view } = useAuth()
   return (
-    <main
-      data-theme-scope="marketing"
-      className="relative min-h-svh overflow-hidden lg:grid lg:grid-cols-2"
-    >
-      <div className="relative hidden lg:block">
-        <CloudArt />
-      </div>
-      <div className="relative flex min-h-svh min-w-0 flex-col justify-center bg-background px-6 py-24 sm:px-8">
-        <div className="mx-auto flex w-full min-w-0 max-w-[28rem] flex-col gap-5">
-          <Link
-            to="/"
-            aria-label="Aircastle home"
-            className="brand-link mb-6 self-start rounded-md focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-solid"
-          >
-            <span aria-hidden="true" className="brand-logo block size-10 shrink-0" />
-          </Link>
-          {view.kind === 'confirming' ? (
-            <ConfirmationPage key={view.confirmation.token} confirmation={view.confirmation} />
-          ) : (
-            <>
-              <h1 className="mb-3 text-[2rem] leading-tight font-[400] tracking-tight">
-                {purpose === 'setup' ? 'Create your super user account' : 'Sign in'}
-              </h1>
-              <AuthForm purpose={purpose} />
-            </>
-          )}
-          <p className="mt-6 text-base text-muted-foreground">
-            By clicking continue, you agree to our{' '}
-            <a
-              className="underline underline-offset-4 hover:text-primary"
-              href="/terms-of-service"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Terms of Service
-            </a>{' '}
-            and{' '}
-            <a
-              className="underline underline-offset-4 hover:text-primary"
-              href="/privacy-policy"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Privacy Policy
-            </a>
-            .
-          </p>
-        </div>
-      </div>
-    </main>
+    <SignInLayout>
+      {view.kind === 'confirming' ? (
+        <ConfirmationPage key={view.confirmation.token} confirmation={view.confirmation} />
+      ) : (
+        <>
+          <SignInHeading>
+            {purpose === 'setup' ? 'Create your super user account' : 'Sign in'}
+          </SignInHeading>
+          <AuthForm purpose={purpose} />
+        </>
+      )}
+    </SignInLayout>
   )
 }

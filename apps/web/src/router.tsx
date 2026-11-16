@@ -10,7 +10,7 @@ import { NotFoundPage } from '@/features/not-found'
 import { SignInPage } from '@/features/sign-in'
 import { DashboardSkeleton } from '@/components/dashboard-skeleton'
 import { navigationPages } from '@/features/navigation'
-import { landingDescription, landingTitle } from '@/metadata'
+import { landingDescription, landingTitle, signInTitle } from '@/metadata'
 import {
   access,
   unmatchedAccess,
@@ -86,7 +86,7 @@ const signInRoute = createRoute({
   path: '/sign-in',
   staticData: { access: access.signIn },
   component: SignInPage,
-  head: () => ({ meta: [{ title: 'Aircastle - Sign in' }] }),
+  head: () => ({ meta: [{ title: signInTitle }] }),
 })
 const inboxRoute = createRoute({
   getParentRoute: () => rootRoute,

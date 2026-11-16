@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "bun scripts/generate-icons.mjs && vp dev",
     "build": "bun scripts/generate-icons.mjs && vp build",
+    "build:landing": "bun scripts/generate-icons.mjs && vp build --mode landing --outDir dist-landing",
     "generate:icons": "bun scripts/generate-icons.mjs",
     "typecheck": "tsc -b",
     "test": "vp test run",
