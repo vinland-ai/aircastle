@@ -49,7 +49,7 @@ The example environment enables local authentication at `http://localhost:43121`
 To run the built application and Postgres together:
 
 ```sh
-docker compose --env-file /dev/null -f compose.development.yaml up --build
+docker compose --env-file /dev/null --project-directory . -f infra/docker/compose.development.yaml up --build
 ```
 
 Open `http://127.0.0.1:43121`. This Compose file enables development auth and keeps database data across container recreation. An image launched independently has local auth disabled unless `AIRCASTLE_ENV=development` and a loopback `AIRCASTLE_URL` are supplied. The image listens on every container interface, so publish its port on loopback only, for example `-p 127.0.0.1:43121:8080`. Production authentication is not included in this local workflow.
@@ -87,7 +87,7 @@ Each run overwrites its reports in `apps/web/reports/`. `html/` holds the HTML r
 
 ## Local Postgres
 
-Install Docker with Compose v2.20 or later and start the Docker engine. The committed `compose.yaml` pins Postgres 18.6 by image digest. It supports ARM64 and AMD64.
+Install Docker with Compose v2.20 or later and start the Docker engine. The committed `infra/docker/compose.yaml` pins Postgres 18.6 by image digest. It supports ARM64 and AMD64.
 
 ```sh
 cp .env.example .env
@@ -106,7 +106,7 @@ Run a command against a disposable database:
 vp run db:test -- vp run test-api
 ```
 
-The wrapper uses the same Compose file and pinned image. Each invocation gets a unique project, volume and automatically assigned localhost port. It supplies `AIRCASTLE_DATABASE_URL` to the command, overriding any inherited value. It preserves the command's exit status and deletes its database after success, failure, Ctrl-C or termination. Forced kills and Docker outages can prevent cleanup; the wrapper prints its project name for recovery with `docker compose -p <project> -f compose.yaml down --volumes`.
+The wrapper uses the same Compose file and pinned image. Each invocation gets a unique project, volume and automatically assigned localhost port. It supplies `AIRCASTLE_DATABASE_URL` to the command, overriding any inherited value. It preserves the command's exit status and deletes its database after success, failure, Ctrl-C or termination. Forced kills and Docker outages can prevent cleanup; the wrapper prints its project name for recovery with `docker compose -p <project> --project-directory . -f infra/docker/compose.yaml down --volumes`.
 
 The full `vp run test` and `vp run check` commands require Docker and create disposable databases automatically. `vp run check` also runs web browser journeys, which need the Chromium installation described above, and lints workflows with [actionlint](https://github.com/rhysd/actionlint), which must be on your `PATH`.
 
