@@ -2,10 +2,10 @@ import {
   createRootRouteWithContext,
   createRoute,
   createRouter,
-  Link,
   redirect,
   type RouterHistory,
 } from '@tanstack/react-router'
+import { MarketingPage } from '@/features/marketing'
 import { NotFoundPage } from '@/features/not-found'
 import { SignInPage } from '@/features/sign-in'
 import { DashboardSkeleton } from '@/components/dashboard-skeleton'
@@ -68,18 +68,7 @@ const indexRoute = createRoute({
   head: () => ({
     meta: [{ title: landingTitle }],
   }),
-  component: () => (
-    <main
-      data-theme-scope="marketing"
-      className="flex min-h-svh flex-col items-center justify-center gap-6 p-8"
-    >
-      <span aria-hidden="true" className="brand-logo block size-10" />
-      <h1 className="text-2xl font-semibold">Aircastle</h1>
-      <Link to="/sign-in" className="text-sm underline underline-offset-4">
-        Sign in
-      </Link>
-    </main>
-  ),
+  component: MarketingPage,
 })
 const dashboardEntryRoute = createRoute({
   getParentRoute: () => rootRoute,

@@ -38,6 +38,9 @@ export function AppShell({
   )
 }
 
+export { GeneratedAvatar } from './generated-avatar'
+export { ThemeSwitcher } from './theme-switcher'
+
 export function AccountControls({ account }: { account: ShellAccount }) {
   return (
     <TooltipProvider>

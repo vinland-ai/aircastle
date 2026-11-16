@@ -7,7 +7,7 @@ test('D1 a superseded token preview leaves no stale confirmation on the next set
 }, info) => {
   const link = await requestSetupLink(page, uniqueEmail('cancelled-preview'))
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Aircastle', exact: true })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Marketing navigation' })).toBeVisible()
   let release!: () => void
   const held = new Promise<void>((resolve) => {
     release = resolve
@@ -39,7 +39,7 @@ test('D1 a superseded token preview leaves no stale confirmation on the next set
     if (info.project.use.video && info.project.use.video !== 'off')
       await page.screenshot({ path: info.outputPath('preview-held.png') })
     await navigate('/')
-    await expect(page.getByRole('heading', { name: 'Aircastle', exact: true })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Marketing navigation' })).toBeVisible()
     release()
     await released
     if (info.project.use.video && info.project.use.video !== 'off')

@@ -29,7 +29,7 @@ test('[auth:R1] [auth:R2] a fresh instance keeps / public and sends sign-in and 
   page,
 }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Aircastle', exact: true })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Marketing navigation' })).toBeVisible()
   await expect(page).toHaveURL(/\/$/)
   for (const path of ['/sign-in', '/dash', '/dash/workspaces', '/setup']) {
     await page.goto(path)

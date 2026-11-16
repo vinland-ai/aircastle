@@ -161,7 +161,7 @@ describe('Confirmation display over HTTP doubles, without authentication proof',
         'POST /api/auth/confirm/preview': () => held.promise,
       })
       const { history, router } = await mountAuth('/', http)
-      await screen.findByRole('heading', { name: 'Aircastle' })
+      await screen.findByRole('navigation', { name: 'Marketing navigation' })
       await act(async () => history.push(`/${purpose}?token=superseded-token`))
       await waitFor(() => expect(http.calls('/auth/confirm/preview')).toHaveLength(1))
       await act(async () => history.push('/'))

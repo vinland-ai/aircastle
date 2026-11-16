@@ -59,13 +59,19 @@ describe('Sign in with display-only signed-out HTTP', () => {
     }
   })
 
-  it('returns Home to the marketing homepage', async () => {
+  it('offers a Home link in the art, and the logo above the heading also returns home', async () => {
     const { router, user } = await renderApp('/sign-in', displayHttp())
     expect(screen.getByRole('link', { name: 'Home' }).getAttribute('href')).toBe('/')
-    await user.click(screen.getByRole('link', { name: 'Home' }))
+    const logo = screen.getByRole('link', { name: 'Aircastle home' })
+    expect(logo.getAttribute('href')).toBe('/')
+    expect(
+      logo.compareDocumentPosition(screen.getByRole('heading', { name: 'Sign in' })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    await user.click(logo)
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
-    expect(await screen.findByRole('heading', { name: 'Aircastle' })).toBeTruthy()
+    expect(await screen.findByRole('navigation', { name: 'Marketing navigation' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Toggle Sidebar' })).toBeNull()
   })
 })

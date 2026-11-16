@@ -150,7 +150,13 @@
     },
     {
       "id": "api-app",
-      "globs": ["apps/api/*", "apps/api/src/*"],
+      "globs": [
+        "apps/api/*",
+        "apps/api/src/*",
+        "apps/api/src/features/auth/**",
+        "apps/api/src/features/development-inbox/**",
+        "apps/api/src/test-support/**"
+      ],
       "shared_inputs": [
         "package.json",
         "bun.lock",
@@ -291,11 +297,58 @@
         "apps/web/*",
         "apps/web/src/*"
       ],
-      "depends_on": ["web-ui"]
+      "depends_on": ["web-ui", "web-brand"]
+    },
+    {
+      "id": "web-brand",
+      "globs": ["apps/web/src/components/brand/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/web/*",
+        "apps/web/src/*"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "web-marketing",
+      "globs": ["apps/web/src/features/marketing/**"],
+      "shared_inputs": [
+        "package.json",
+        "bun.lock",
+        "vite.config.ts",
+        "tsconfig*.json",
+        "knip.json",
+        ".bun-version",
+        ".node-version",
+        "vite.content.config.ts",
+        "vite.db.config.ts",
+        "AGENTS.md",
+        "compose.yaml",
+        "apps/web/*",
+        "apps/web/src/*"
+      ],
+      "depends_on": ["web-ui", "web-brand", "web-shell", "web-navigation"]
     },
     {
       "id": "web-app",
-      "globs": ["apps/web/*", "apps/web/src/*", "apps/web/scripts/**", "apps/web/public/**"],
+      "globs": [
+        "apps/web/*",
+        "apps/web/src/*",
+        "apps/web/scripts/**",
+        "apps/web/public/**",
+        "apps/web/src/features/auth/**",
+        "apps/web/src/features/theme/**"
+      ],
       "shared_inputs": [
         "package.json",
         "bun.lock",
@@ -317,7 +370,8 @@
         "web-navigation",
         "web-error-recovery",
         "web-not-found",
-        "web-sign-in"
+        "web-sign-in",
+        "web-marketing"
       ]
     },
     {
@@ -400,7 +454,12 @@
         ".gitignore",
         ".env.example",
         ".vite-hooks/**",
-        "compose.yaml"
+        "compose.yaml",
+        "Dockerfile",
+        ".dockerignore",
+        "compose.development.yaml",
+        "vite.image.config.ts",
+        "patches/**"
       ],
       "shared_inputs": [
         "package.json",

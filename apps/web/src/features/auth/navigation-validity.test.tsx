@@ -79,7 +79,7 @@ describe('[auth:R7] a checked view lasts one navigation', () => {
     const { history, router } = await mountAuth(variants[0][1], http)
     await screen.findByRole('navigation', { name: 'Main navigation' })
     await act(async () => history.push('/'))
-    expect(await screen.findByRole('heading', { name: 'Aircastle' })).toBeTruthy()
+    expect(await screen.findByRole('navigation', { name: 'Marketing navigation' })).toBeTruthy()
     server.signedIn = false
     await act(async () => history.push(protectedPath))
 
@@ -101,7 +101,7 @@ describe('[auth:R7] a checked view lasts one navigation', () => {
       },
     })
     const { history, router } = await mountAuth('/', http)
-    await screen.findByRole('heading', { name: 'Aircastle' })
+    await screen.findByRole('navigation', { name: 'Marketing navigation' })
     await act(async () => history.push(protectedPath.replace(/\/collections$/, '')))
     await waitFor(() => expect(http.calls('/auth/entry')).toHaveLength(1))
     await act(async () => history.push('/'))

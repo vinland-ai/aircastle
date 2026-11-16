@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 
-import { themeStorageKey } from '@/theme'
+import { themeFavicons, themeStorageKey } from '@/theme'
 import { ThemeContext, type Theme } from './context'
 function readTheme(value: string | null): Theme {
-  return value === 'light' || value === 'dark' ? value : 'system'
+  return value === 'light' ? 'light' : 'dark'
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -12,23 +12,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       return readTheme(localStorage.getItem(themeStorageKey))
     } catch (error) {
       if (!(error instanceof DOMException)) throw error
-      return 'system'
+      return 'dark'
     }
   })
   useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    function apply() {
-      const resolved = theme === 'system' ? (media.matches ? 'dark' : 'light') : theme
-      document.documentElement.classList.remove('light', 'dark')
-      document.documentElement.classList.add(resolved)
-      document.documentElement.style.colorScheme = resolved
-      document
-        .querySelector('link[rel="icon"]')
-        ?.setAttribute('href', `/brand/favicon-${resolved}.svg`)
-    }
-    apply()
-    media.addEventListener('change', apply)
-    return () => media.removeEventListener('change', apply)
+    document.documentElement.classList.remove('light', 'dark')
+    document.documentElement.classList.add(theme)
+    document.documentElement.style.colorScheme = theme
+    document.querySelector('link[rel="icon"]')?.setAttribute('href', themeFavicons[theme])
   }, [theme])
   useEffect(() => {
     const sync = (event: StorageEvent) => {
@@ -38,8 +29,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('storage', sync)
     return () => window.removeEventListener('storage', sync)
   }, [])
-  function setTheme(value: string) {
-    const choice = readTheme(value)
+  function setTheme(choice: Theme) {
     setThemeState(choice)
     try {
       localStorage.setItem(themeStorageKey, choice)

@@ -135,14 +135,15 @@ function AccountFields({
   seconds: number
 }) {
   return (
-    <FieldGroup className="gap-4">
+    <FieldGroup className="gap-3">
       {purpose === 'setup' && (
         <Field data-invalid={!!errors.name}>
           <FieldLabel htmlFor="name">Name</FieldLabel>
-          <InputGroup>
+          <InputGroup className="h-12 text-base">
             <InputGroupInput
               id="name"
               name="name"
+              className="text-base md:text-base"
               autoComplete="name"
               aria-invalid={!!errors.name}
               aria-describedby={errors.name ? 'name-error' : undefined}
@@ -152,8 +153,10 @@ function AccountFields({
         </Field>
       )}
       <Field data-invalid={!!errors.email}>
-        <FieldLabel htmlFor="email">Email</FieldLabel>
-        <InputGroup>
+        <FieldLabel className={purpose === 'sign-in' ? 'sr-only' : undefined} htmlFor="email">
+          Email
+        </FieldLabel>
+        <InputGroup className="h-12 text-base">
           <InputGroupInput
             id="email"
             name="email"
@@ -161,6 +164,7 @@ function AccountFields({
             placeholder="your.email@example.com"
             type="email"
             autoComplete="email"
+            className="text-base md:text-base"
             aria-invalid={!!errors.email}
             aria-describedby={errors.email ? 'email-error' : undefined}
           />
@@ -170,7 +174,7 @@ function AccountFields({
         </InputGroup>
         {errors.email && <FieldError id="email-error">{errors.email}</FieldError>}
       </Field>
-      <Button className="w-full" type="submit" disabled={pending || seconds > 0}>
+      <Button className="h-12 w-full text-base" type="submit" disabled={pending || seconds > 0}>
         {pending ? 'Sending…' : purpose === 'setup' ? 'Continue' : 'Send sign-in link'}
       </Button>
     </FieldGroup>
