@@ -10,8 +10,9 @@ const marker = 'Aircastle route failure: private details'
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const router = await importOriginal<typeof import('@tanstack/react-router')>()
-  const createRootRoute: typeof router.createRootRoute = (options) => {
-    const route = router.createRootRoute(options)
+  type RootOptions = Parameters<ReturnType<typeof router.createRootRouteWithContext>>[0]
+  const createRootRouteWithContext = () => (options: RootOptions) => {
+    const route = router.createRootRouteWithContext()(options)
     const original = route.options.loader
     Object.assign(route.options, {
       loader: (context: unknown) => {
@@ -22,7 +23,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
     })
     return route
   }
-  return { ...router, createRootRoute }
+  return { ...router, createRootRouteWithContext }
 })
 
 vi.mock('@/features/sign-in', () => ({
@@ -37,7 +38,9 @@ vi.mock('@/features/sign-in', () => ({
 }))
 
 async function renderRoute(path: string) {
-  const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }))
+  const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }), {
+    fetch: async () => Response.json({ kind: 'ok', value: { kind: 'signed-out' } }),
+  })
   await router.load()
   const onCaughtError = vi.fn()
   render(
@@ -53,6 +56,13 @@ async function renderRoute(path: string) {
   )
   expect(screen.queryByText(marker)).toBeNull()
   expect(screen.getByRole('link', { name: 'Back to home' }).getAttribute('href')).toBe('/')
+}
+
+function preferLightSystemTheme() {
+  vi.spyOn(window, 'matchMedia').mockImplementation(
+    (query) =>
+      ({ matches: query === '(prefers-color-scheme: light)', media: query }) as MediaQueryList,
+  )
 }
 
 function preferDarkSystemTheme() {
@@ -98,8 +108,8 @@ describe('Route failure escalation', () => {
     expect(favicon()).toBe('/brand/favicon-light.svg')
   })
 
-  it('falls back to the system theme when storage is unavailable', async () => {
-    preferDarkSystemTheme()
+  it('falls back to dark when storage is unavailable, whatever the system prefers', async () => {
+    preferLightSystemTheme()
     vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
       throw new DOMException('Storage blocked', 'SecurityError')
     })

@@ -5,23 +5,35 @@ import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, lazyPlugins, loadEnv, type Plugin } from 'vite-plus'
 
-const source = (path: string) => new URL(path, import.meta.url).pathname
+const source = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 const envDir = fileURLToPath(new URL('../../', import.meta.url))
 const fixtureModules = new Map([
+  [source('./src/main.tsx'), source('./e2e/fixture-entry.tsx')],
   [source('./src/components/shell/data.ts'), source('./e2e/fixture-modules/shell-data.ts')],
   [
     source('./src/features/navigation/pages.ts'),
     source('./e2e/fixture-modules/navigation-pages.ts'),
   ],
 ])
-const fixtureData: Plugin = {
-  name: 'fixture-data',
-  enforce: 'pre',
-  async resolveId(specifier, importer, options) {
-    const resolved = await this.resolve(specifier, importer, { ...options, skipSelf: true })
-    const fixture = resolved && fixtureModules.get(resolved.id)
-    return fixture && importer !== fixture ? fixture : resolved
-  },
+const landingModules = new Map([[source('./src/router.tsx'), source('./src/landing-router.tsx')]])
+
+function swapModules(name: string, swaps: Map<string, string>): Plugin {
+  const swapped = new Set<string>()
+  return {
+    name,
+    enforce: 'pre',
+    async resolveId(specifier, importer, options) {
+      const resolved = await this.resolve(specifier, importer, { ...options, skipSelf: true })
+      const swap = resolved && swaps.get(resolved.id)
+      if (!swap || importer === swap) return resolved
+      swapped.add(resolved.id)
+      return swap
+    },
+    generateBundle() {
+      const missed = [...swaps.keys()].filter((original) => !swapped.has(original))
+      if (missed.length > 0) this.error(`${name} never replaced ${missed.join(', ')}`)
+    },
+  }
 }
 
 export default defineConfig(({ mode }) => {
@@ -29,6 +41,7 @@ export default defineConfig(({ mode }) => {
   return {
     envDir,
     test: {
+      fsModuleCachePath: fileURLToPath(new URL('./node_modules/.vitest-cache', import.meta.url)),
       environment: 'happy-dom',
       include: ['src/**/*.test.{ts,tsx}'],
       allowOnly: false,
@@ -43,16 +56,19 @@ export default defineConfig(({ mode }) => {
     },
     resolve: { alias: [{ find: '@', replacement: source('./src') }] },
     server: {
+      headers: { 'Referrer-Policy': 'no-referrer' },
       port: 43121,
       strictPort: true,
-      proxy: {
-        '^/api(?:/|$)': { target: `http://127.0.0.1:${env.PORT ?? 43122}` },
-      },
+      proxy:
+        mode === 'landing'
+          ? {}
+          : { '^/api(?:/|$)': { target: `http://127.0.0.1:${env.AIRCASTLE_PORT ?? 43122}` } },
     },
     preview: { port: 43121, strictPort: true },
     plugins:
       lazyPlugins(() => [
-        ...(process.env.WEB_FIXTURES === '1' ? [fixtureData] : []),
+        ...(process.env.WEB_FIXTURES === '1' ? [swapModules('fixture-data', fixtureModules)] : []),
+        ...(mode === 'landing' ? [swapModules('landing-only', landingModules)] : []),
         tailwindcss(),
         react(),
         babel({ presets: [reactCompilerPreset()] }),

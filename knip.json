@@ -13,19 +13,21 @@
   "workspaces": {
     ".": {
       "vitest": {
-        "config": ["vite.content.config.ts", "vite.db.config.ts"]
+        "config": ["vite.content.config.ts", "vite.db.config.ts", "vite.image.config.ts"]
       },
-      "ignoreDependencies": ["vite"],
       "ignoreExportsUsedInFile": true
     },
     "apps/api": {
       "entry": ["src/{index,cli}.ts"]
     },
     "apps/web": {
-      "entry": ["e2e/fixture-modules/*.ts"],
+      "entry": ["e2e/fixture-modules/*.ts", "e2e/fixture-entry.tsx", "src/landing-router.tsx"],
       "vitest": {
         "config": ["vite.config.ts"]
       }
+    },
+    "packages/contracts": {
+      "entry": ["tests/types/**/*.ts"]
     },
     "packages/client": {
       "entry": ["tests/types/**/*.ts"],

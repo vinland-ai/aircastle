@@ -2,13 +2,34 @@ import type { Locator, Page } from '@playwright/test'
 import { test, expect, visit, assertLayout, visibleSidebarTrigger } from './support'
 
 const destinations = [
-  ['Tasks', '/dash/workspaces/demo/projects/demo/tasks'],
-  ['Collections', '/dash/workspaces/demo/projects/demo/collections'],
-  ['Media Library', '/dash/workspaces/demo/projects/demo/media'],
-  ['Analytics', '/dash/workspaces/demo/projects/demo/analytics'],
-  ['Users', '/dash/workspaces/demo/projects/demo/users'],
-  ['Access Tokens', '/dash/workspaces/demo/projects/demo/access-tokens'],
-  ['Settings', '/dash/workspaces/demo/projects/demo/settings'],
+  [
+    'Tasks',
+    '/dash/workspaces/11111111-1111-4111-8111-111111111111/projects/22222222-2222-4222-8222-222222222222/tasks',
+  ],
+  [
+    'Collections',
+    '/dash/workspaces/11111111-1111-4111-8111-111111111111/projects/22222222-2222-4222-8222-222222222222/collections',
+  ],
+  [
+    'Media Library',
+    '/dash/workspaces/11111111-1111-4111-8111-111111111111/projects/22222222-2222-4222-8222-222222222222/media',
+  ],
+  [
+    'Analytics',
+    '/dash/workspaces/11111111-1111-4111-8111-111111111111/projects/22222222-2222-4222-8222-222222222222/analytics',
+  ],
+  [
+    'Users',
+    '/dash/workspaces/11111111-1111-4111-8111-111111111111/projects/22222222-2222-4222-8222-222222222222/users',
+  ],
+  [
+    'Access Tokens',
+    '/dash/workspaces/11111111-1111-4111-8111-111111111111/projects/22222222-2222-4222-8222-222222222222/access-tokens',
+  ],
+  [
+    'Settings',
+    '/dash/workspaces/11111111-1111-4111-8111-111111111111/projects/22222222-2222-4222-8222-222222222222/settings',
+  ],
 ] as const
 
 async function expectDestination(page: Page, name: string, path: string) {
@@ -59,23 +80,47 @@ test.describe('routes and history', () => {
   test('Back and Forward follow visible navigation and the brand returns to Collections', async ({
     page,
   }) => {
-    await visit(page, 'normal', '/dash/workspaces/acme/projects/editorial/settings')
+    await visit(
+      page,
+      'default',
+      '/dash/workspaces/33333333-3333-4333-8333-333333333333/projects/44444444-4444-4444-8444-444444444444/settings',
+    )
     await page.reload()
-    await expectDestination(page, 'Settings', '/dash/workspaces/acme/projects/editorial/settings')
+    await expectDestination(
+      page,
+      'Settings',
+      '/dash/workspaces/33333333-3333-4333-8333-333333333333/projects/44444444-4444-4444-8444-444444444444/settings',
+    )
     const navigation = page.getByRole('navigation', { name: 'Main navigation' })
     await navigation.getByRole('link', { name: 'Tasks', exact: true }).click()
-    await expectDestination(page, 'Tasks', '/dash/workspaces/acme/projects/editorial/tasks')
+    await expectDestination(
+      page,
+      'Tasks',
+      '/dash/workspaces/33333333-3333-4333-8333-333333333333/projects/44444444-4444-4444-8444-444444444444/tasks',
+    )
     await navigation.getByRole('link', { name: 'Media Library', exact: true }).click()
-    await expectDestination(page, 'Media Library', '/dash/workspaces/acme/projects/editorial/media')
+    await expectDestination(
+      page,
+      'Media Library',
+      '/dash/workspaces/33333333-3333-4333-8333-333333333333/projects/44444444-4444-4444-8444-444444444444/media',
+    )
     await page.goBack()
-    await expectDestination(page, 'Tasks', '/dash/workspaces/acme/projects/editorial/tasks')
+    await expectDestination(
+      page,
+      'Tasks',
+      '/dash/workspaces/33333333-3333-4333-8333-333333333333/projects/44444444-4444-4444-8444-444444444444/tasks',
+    )
     await page.goForward()
-    await expectDestination(page, 'Media Library', '/dash/workspaces/acme/projects/editorial/media')
+    await expectDestination(
+      page,
+      'Media Library',
+      '/dash/workspaces/33333333-3333-4333-8333-333333333333/projects/44444444-4444-4444-8444-444444444444/media',
+    )
     await page.getByRole('banner').getByRole('link', { name: 'Aircastle' }).click()
     await expectDestination(
       page,
       'Collections',
-      '/dash/workspaces/acme/projects/editorial/collections',
+      '/dash/workspaces/33333333-3333-4333-8333-333333333333/projects/44444444-4444-4444-8444-444444444444/collections',
     )
   })
 })
@@ -155,30 +200,79 @@ test.describe('mobile drawer', () => {
         await destination.focus()
         await page.keyboard.press('Enter')
       } else await destination.click()
-      await expect(page).toHaveURL(/\/dash\/workspaces\/demo\/projects\/demo\/tasks$/)
+      await expect(page).toHaveURL(
+        /\/dash\/workspaces\/11111111-1111-4111-8111-111111111111\/projects\/22222222-2222-4222-8222-222222222222\/tasks$/,
+      )
       await expect(page.getByRole('dialog')).toBeHidden()
       await expect(trigger).toHaveAttribute('aria-expanded', 'false')
       await expect(trigger).toBeFocused()
       await trigger.click()
-      await expectDestination(page, 'Tasks', '/dash/workspaces/demo/projects/demo/tasks')
+      await expectDestination(
+        page,
+        'Tasks',
+        '/dash/workspaces/11111111-1111-4111-8111-111111111111/projects/22222222-2222-4222-8222-222222222222/tasks',
+      )
       await page.keyboard.press('Escape')
     })
   }
 })
 
-test('desktop collapse and mobile drawer state remain independent across resizing', async ({
+test('resizing does not move the mobile drawer trigger during a pointer press', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await visit(page)
   await visibleSidebarTrigger(page).click()
   await expect(visibleSidebarTrigger(page)).toHaveAttribute('aria-expanded', 'false')
+  await page.evaluate(() => {
+    document.querySelector('header')!.addEventListener('transitionrun', (event) => {
+      for (const animation of (event.target as Element).getAnimations()) {
+        animation.pause()
+        animation.currentTime = 0
+      }
+    })
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  const mobile = visibleSidebarTrigger(page)
+  await expect(mobile).toHaveAttribute('aria-expanded', 'false')
+  await page.evaluate(() => new Promise(requestAnimationFrame))
+  const box = await mobile.boundingBox()
+  expect(box).not.toBeNull()
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+  await page.mouse.down()
+  await page.evaluate(() => {
+    for (const animation of document.querySelector('header')!.getAnimations({ subtree: true })) {
+      animation.finish()
+    }
+  })
+  await page.mouse.up()
+  await expect(page.getByRole('dialog', { name: 'Sidebar' })).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+  await expect(mobile).toHaveAttribute('aria-expanded', 'true')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toBeHidden()
+  await expect(mobile).toBeFocused()
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await expect(visibleSidebarTrigger(page)).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('desktop collapse and mobile drawer state remain independent across resizing', async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await visit(page)
+  await visibleSidebarTrigger(page).click()
+  await expect(visibleSidebarTrigger(page)).toHaveAttribute('aria-expanded', 'false')
+  if (info.project.use.video && info.project.use.video !== 'off')
+    await page.screenshot({ path: info.outputPath('desktop-collapsed.png') })
   for (const width of [390, 767]) {
     await page.setViewportSize({ width, height: 844 })
     const mobile = visibleSidebarTrigger(page)
     await expect(mobile).toHaveAttribute('aria-expanded', 'false')
     await mobile.click()
     await expect(page.getByRole('dialog')).toBeVisible()
+    if (info.project.use.video && info.project.use.video !== 'off')
+      await page.screenshot({ path: info.outputPath(`mobile-${width}-drawer-open.png`) })
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).toBeHidden()
     await expect(mobile).toBeFocused()
@@ -213,7 +307,11 @@ test.describe('page search', () => {
         await page.keyboard.press('ArrowDown')
         await page.keyboard.press('Enter')
       } else await dialog.getByRole('option', { name: 'Users', exact: true }).click()
-      await expectDestination(page, 'Users', '/dash/workspaces/demo/projects/demo/users')
+      await expectDestination(
+        page,
+        'Users',
+        '/dash/workspaces/11111111-1111-4111-8111-111111111111/projects/22222222-2222-4222-8222-222222222222/users',
+      )
       await expect(dialog).toBeHidden()
       await expect(button).toBeFocused()
     })
@@ -225,7 +323,7 @@ test.describe('page search', () => {
         page,
       }) => {
         await visit(page)
-        const previous = page.getByRole('button', { name: 'Choose theme' })
+        const previous = page.getByRole('button', { name: 'Dark theme' })
         await previous.focus()
         await page.keyboard.press(shortcut)
         const dialog = page.getByRole('dialog', { name: 'Search pages' })
