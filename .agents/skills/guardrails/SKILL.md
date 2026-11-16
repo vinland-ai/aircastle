@@ -15,7 +15,7 @@ Put each rule at the highest layer that can express it.
 2. Lint. The `lint` block in `vite.config.ts`, run by `vp run lint`.
 3. Policy script and harness tests. `scripts/check-code-policy.ts` (`vp run check:policy`) and `tests/harness/*.test.ts`.
 4. A CI step in `.github/workflows/ci.yml`.
-5. Prose in `AGENTS.md`. Use it only when nothing above can express the rule, and keep it to one line.
+5. Prose in `CODE_STANDARDS.md`. Use it only when nothing above can express the rule, and keep it to one line.
 
 ## What main enforces
 
@@ -69,6 +69,8 @@ If a check blocks you, fix the code. Change the check only when it is wrong, and
 6. Name the guardrail and the planted-violation result in the PR body.
 
 ## Review rules
+
+When you review or refactor code, read `CODE_STANDARDS.md` first and check the change against it.
 
 These came out of review. Each has its reason and what enforces it.
 
