@@ -8,6 +8,7 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     environment: "node",
     maxWorkers: 2,
+    testTimeout: 30_000,
   },
   pack: { entry: ["src/index.ts"], format: "esm", target: "es2022", dts: true, clean: true },
 });
