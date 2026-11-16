@@ -1,4 +1,4 @@
-import { test, expect } from './support'
+import { fixtureTest, test, expect } from './support'
 
 for (const theme of ['light', 'dark'] as const) {
   for (const width of [1440, 390]) {
@@ -219,7 +219,7 @@ test('hero explains Aircastle below the title in regular text', async ({ page })
   expect(summaryBox.y).toBeGreaterThanOrEqual(titleBox.y + titleBox.height)
 })
 
-test('hero call to action sits below the summary and opens sign-in', async ({ page }) => {
+fixtureTest('hero call to action sits below the summary and opens sign-in', async ({ page }) => {
   await page.goto('/')
   const cta = page.getByRole('main').getByRole('link', { name: 'Get started', exact: true })
   await expect(cta).toBeVisible()
@@ -231,6 +231,7 @@ test('hero call to action sits below the summary and opens sign-in', async ({ pa
   expect(ctaBox.y).toBeGreaterThanOrEqual(summaryBox.y + summaryBox.height)
   await cta.click()
   await expect(page).toHaveURL(/\/sign-in$/)
+  await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
 })
 
 test('hero offers a dim ghost demo link beside the call to action', async ({ page }) => {
