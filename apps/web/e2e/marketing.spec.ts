@@ -260,7 +260,8 @@ test('hero offers a dim ghost demo link beside the call to action', async ({ pag
 })
 
 test('underline beam keeps one length across every rotating word', async ({ page }) => {
-  await page.clock.install()
+  await page.clock.install({ time: 0 })
+  await page.clock.pauseAt(1000)
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.goto('/')
   const beamLength = () =>

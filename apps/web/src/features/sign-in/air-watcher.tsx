@@ -11,7 +11,7 @@ const fullReachAt = 240
 
 /** Air's cloud, sized to the surrounding text, glancing toward the pointer. */
 export function AirWatcher({ eyeColour }: { eyeColour: string }) {
-  const mascot = useRef<HTMLDivElement>(null)
+  const mascot = useRef<HTMLSpanElement>(null)
   const [look, setLook] = useState({ x: 0, y: 0 })
 
   useEffect(() => {
@@ -30,12 +30,12 @@ export function AirWatcher({ eyeColour }: { eyeColour: string }) {
   }, [])
 
   return (
-    <div
+    <span
       ref={mascot}
       data-sign-in-air
       className="relative inline-block aspect-[61/52] h-[0.9em] shrink-0"
     >
-      <div className="absolute inset-0 bg-white [mask:url(/brand/air-body.svg)_center/contain_no-repeat]" />
+      <span className="absolute inset-0 bg-white [mask:url(/brand/air-body.svg)_center/contain_no-repeat]" />
       {eyes.map(({ cx, cy }) => (
         <span
           key={cx}
@@ -51,6 +51,6 @@ export function AirWatcher({ eyeColour }: { eyeColour: string }) {
           }}
         />
       ))}
-    </div>
+    </span>
   )
 }
