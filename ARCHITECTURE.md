@@ -83,7 +83,7 @@ Colocated component tests use Vite+ and happy-dom. `src/display-http.ts` owns th
 
 ## Repository automation
 
-`.github/workflows/ci.yml` runs the required `Lint, typecheck and test` check. `.github/workflows/mutation.yml` runs full schema and contract mutation testing nightly or on demand. AI review and the `.agents/skills/gardener` audit run locally, outside GitHub Actions. [Automation instructions](.github/AGENTS.md) record the workflow rules.
+`.github/workflows/ci.yml` runs the required `Lint, typecheck and test` check. `.github/workflows/mutation.yml` runs full schema and contract mutation testing nightly or on demand. AI review runs locally, outside GitHub Actions. [Automation instructions](.github/AGENTS.md) record the workflow rules.
 
 ## Feature pattern
 

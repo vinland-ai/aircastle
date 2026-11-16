@@ -57,7 +57,7 @@ Aircastle is a standalone headless CMS with code-defined collections. These inst
 - Verify documentation and configuration changes directly; add executable tests when behavior changes.
 - Run only the checks necessary to verify the current change and its affected callers. Select the smallest relevant test files, cases, and package checks. Explain what each selected check proves before running it.
 - Finish work locally before you open a PR. Implement, run the relevant checks, get one independent review, fix its findings, and have the reviewer check the fixes until none remain. Then open the PR ready for review. CI confirms finished work. A CI failure means a local check is missing, so add it.
-- Open, update and merge PRs as the bot account: `GH_TOKEN=$(gh auth token -u abyan-ai-integration)`. Keep the repository owner as the git author; the squash merge credits the owner as co-author. Never land a PR with an unsatisfied owner hold; the owner's decision satisfies it.
+- PRs that touch a path in `.github/CODEOWNERS` wait for the owner's review; never merge those yourself.
 - Push to a PR once per review round, not once per fix. Run `vp run check` on the final commit before each push; it runs every script CI runs. Do not run repository-wide suites at other times unless the user requests them. This includes `vp run check`, `vp run test`, `vp run test:all`, and `vp run test:prepared`.
 - Broaden verification only when a failure or a concrete dependency impact requires it. Name the affected behavior and select its relevant checks. UI work does not require backend, database, mutation, or verification-tool suites unless it changes those concerns.
 - For documentation-only changes, inspect the edited text, links, and diff. Do not run executable test suites.
@@ -83,7 +83,3 @@ Apply these rules to README.md, guides, reference docs, and other public copy.
 - Describe concrete behavior and instructions. Support claims with evidence or named sources; distinguish planned features from shipped behavior.
 - Cut hype, filler, jargon, metaphors, chatbot phrases, vague claims, and needless hedging. Avoid stock contrasts such as "not just X, but Y" and forced lists of three.
 - Use sentence case headings and straight quotes. Avoid em dashes, decorative emoji, excessive bold, and fragments that make readers decode the text.
-
-## Factory
-
-`.factory/` holds the factory policy, unit map, provider tiers and review rubric. The factory evaluates changes against the base policy and never lands a PR with an unsatisfied owner hold. Merge authority is disabled until the owner enables it.
