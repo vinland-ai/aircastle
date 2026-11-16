@@ -19,7 +19,15 @@ const env = {
   AIRCASTLE_DB_USER: "aircastle",
   AIRCASTLE_DB_PASSWORD: "aircastle-local",
 };
-const compose = ["compose", "--project-name", project, "-f", `${root}compose.yaml`];
+const compose = [
+  "compose",
+  "--project-name",
+  project,
+  "--project-directory",
+  root,
+  "-f",
+  `${root}infra/docker/compose.yaml`,
+];
 let active: ReturnType<typeof Bun.spawn> | undefined;
 let interrupted = 0;
 
@@ -99,7 +107,7 @@ try {
   });
   if (cleanup.status !== 0) {
     console.error(
-      `Cleanup failed. Retry: docker compose -p ${project} -f compose.yaml down --volumes`,
+      `Cleanup failed. Retry: docker compose -p ${project} --project-directory . -f infra/docker/compose.yaml down --volumes`,
     );
     process.exitCode = 1;
   }

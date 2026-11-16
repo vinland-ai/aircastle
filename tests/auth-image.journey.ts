@@ -25,8 +25,10 @@ function compose(args: string[], environment: Record<string, string> = {}) {
       "/dev/null",
       "-p",
       project,
+      "--project-directory",
+      ".",
       "-f",
-      "compose.development.yaml",
+      "infra/docker/compose.development.yaml",
       ...args,
     ],
     {

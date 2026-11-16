@@ -40,6 +40,9 @@ packages/
 
 scripts/                      Repository checks and local development tooling
 
+infra/
+└── docker/                   Application image, its ignore file, and Compose files for Postgres and the built app
+
 .github/                      CI workflows and shared setup
 ```
 
@@ -47,7 +50,7 @@ The API assembles middleware, feature routes, and API documentation through `cre
 
 The server mounts every API route under `/api`, including `/api/docs` and `/api/openapi.json`. Feature routers use paths relative to that mount and follow the feature pattern below. `routeAccess` in `app.ts` classifies every mounted method and path as public, auth dispatch, development inbox or project key. A request that matches an unclassified route gets 404 before any handler runs, and `src/routes.test.ts` checks the table against the mounted routes.
 
-Vite forwards `/api` requests unchanged during development and preview. The built API owns the same prefix without Vite. `src/static.ts` serves the built browser and SPA refreshes on the same Bun listener, with GET/HEAD handling, no-referrer responses, and file-boundary checks. API misses stay API responses. The root `Dockerfile` packages this runtime and normal browser output; `compose.development.yaml` supplies explicit local auth and persistent Postgres with loopback ports. Production auth and hosting configuration remain deferred.
+Vite forwards `/api` requests unchanged during development and preview. The built API owns the same prefix without Vite. `src/static.ts` serves the built browser and SPA refreshes on the same Bun listener, with GET/HEAD handling, no-referrer responses, and file-boundary checks. API misses stay API responses. `infra/docker/Dockerfile` packages this runtime and normal browser output; `infra/docker/compose.development.yaml` supplies explicit local auth and persistent Postgres with loopback ports. Production auth and hosting configuration remain deferred.
 
 ## Web app structure
 
@@ -132,7 +135,7 @@ This is a general pattern, not a required file inventory for every module. Exist
 - `packages/client` owns developer configuration and the typed application HTTP client. `packages/cli` owns publication and lockfile workflows and communicates over HTTP.
 - Browser code uses HTTP and browser-safe contracts. It does not import server implementations or executable collection configuration.
 
-Local Postgres setup stays in the root `compose.yaml` and development scripts. Application migrations belong with their database adapter.
+Local Postgres setup stays in `infra/docker/compose.yaml` and development scripts. Application migrations belong with their database adapter.
 
 ## Keeping the map current
 

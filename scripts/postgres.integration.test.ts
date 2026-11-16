@@ -96,8 +96,10 @@ test("dev data survives restart and disposable test cleanup, while reset clears 
       "docker",
       [
         "compose",
+        "--project-directory",
+        ".",
         "-f",
-        "compose.yaml",
+        "infra/docker/compose.yaml",
         "exec",
         "-T",
         "postgres",
@@ -131,10 +133,18 @@ test("dev data survives restart and disposable test cleanup, while reset clears 
     command("db:up");
     expect(sql("SELECT to_regclass('public.persistence_probe') IS NULL")).toBe("t");
   } finally {
-    execFileSync("docker", ["compose", "-f", "compose.yaml", "down", "--volumes"], {
-      cwd: root,
-      env,
-      stdio: "pipe",
-    });
+    execFileSync(
+      "docker",
+      [
+        "compose",
+        "--project-directory",
+        ".",
+        "-f",
+        "infra/docker/compose.yaml",
+        "down",
+        "--volumes",
+      ],
+      { cwd: root, env, stdio: "pipe" },
+    );
   }
 });
