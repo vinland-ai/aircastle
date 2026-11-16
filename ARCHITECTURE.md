@@ -41,7 +41,7 @@ packages/
 scripts/                      Repository checks and local development tooling
 
 infra/
-└── docker/                   Application image, its ignore file, and Compose files for Postgres and the built app
+└── docker/                   Application image, Compose files, the `db:test` Postgres wrapper, and the Docker-backed tests with their Vitest configs
 
 .github/                      CI workflows and shared setup
 ```

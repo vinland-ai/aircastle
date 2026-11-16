@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { postgresAdapter } from "@aircastle/adapter-postgres";
 import { createAircastle, provisionDevelopment } from "@aircastle/core";
-import { bindLoopbackPort, repository } from "./support/content-processes.ts";
+import { bindLoopbackPort, repository } from "../../tests/support/content-processes.ts";
 
 const run = promisify(execFile);
 const suffix = randomUUID().slice(0, 8);

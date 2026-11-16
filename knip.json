@@ -4,7 +4,7 @@
   "ignoreDependencies": ["@stryker-mutator/command-runner"],
   "ignoreBinaries": ["actionlint"],
   "ignoreUnresolved": [
-    "^scripts/with-postgres\\.ts$",
+    "^infra/docker/with-postgres\\.ts$",
     "^packages/schema/scripts/classify-mutations\\.ts$"
   ],
   "ignoreIssues": {
@@ -13,7 +13,11 @@
   "workspaces": {
     ".": {
       "vitest": {
-        "config": ["vite.content.config.ts", "vite.db.config.ts", "vite.image.config.ts"]
+        "config": [
+          "vite.content.config.ts",
+          "infra/docker/vite.db.config.ts",
+          "infra/docker/vite.image.config.ts"
+        ]
       },
       "ignoreExportsUsedInFile": true
     },

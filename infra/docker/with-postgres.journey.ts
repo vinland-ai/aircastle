@@ -3,13 +3,13 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
-const root = fileURLToPath(new URL("../", import.meta.url));
+const root = fileURLToPath(new URL("../../", import.meta.url));
 
 function wrapped(code: string, interrupt = false) {
   return new Promise<{ code: number; output: string }>((resolve) => {
     const child = execFile(
       "bun",
-      ["scripts/with-postgres.ts", "bun", "-e", code],
+      ["infra/docker/with-postgres.ts", "bun", "-e", code],
       {
         cwd: root,
         env: {

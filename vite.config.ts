@@ -25,7 +25,7 @@ const bunEnv = {
 export default defineConfig({
   resolve: { conditions: ["development"] },
   test: {
-    include: ["tests/**/*.test.ts", "scripts/dev-setup.test.ts"],
+    include: ["infra/**/*.test.ts", "tests/**/*.test.ts", "scripts/dev-setup.test.ts"],
     environment: "node",
     maxWorkers: 2,
     testTimeout: 30_000,
