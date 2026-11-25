@@ -48,6 +48,7 @@ jobs:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
+      - run: bun run test
       - run: bun run build
 
   api:
@@ -63,9 +64,39 @@ jobs:
         with:
           working-directory: apps/api
           enable-cache: true
-          cache-dependency-glob: apps/api/uv.lock
+          cache-dependency-glob: uv.lock
       - run: uv sync --locked
       - run: uv run ruff check
       - run: uv run ruff format --check
       - run: uv run basedpyright
       - run: uv run pytest
+
+  contract:
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.4.0
+        with:
+          working-directory: apps/api
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - name: Export the OpenAPI document
+        working-directory: apps/api
+        run: uv run --locked scripts/export_openapi.py
+      - name: Regenerate the web client
+        working-directory: apps/web
+        run: bun run generate:api
+      - name: Fail if the committed contract is stale
+        run: |
+          contract=(apps/api/openapi.json apps/web/src/lib/api/generated)
+          git add --intent-to-add -- "${contract[@]}"
+          if ! git diff --exit-code -- "${contract[@]}"; then
+            echo "::error title=Stale API contract::The committed OpenAPI document or web client doesn't match the API. In apps/api run 'uv run scripts/export_openapi.py', then in apps/web run 'bun run generate:api', and commit both. Never edit them by hand."
+            exit 1
+          fi

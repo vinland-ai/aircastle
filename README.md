@@ -34,11 +34,14 @@ bun run start
 
 `next build` prerenders the landing page and the demo dashboard (`/dash/workspaces/demo/projects/demo/...`) as static HTML. Other workspace and project ids show a skeleton, then render in the browser.
 
-Run the type check:
+Run the type check and the tests:
 
 ```sh
 bun run typecheck
+bun run test
 ```
+
+The tests use Bun's built-in runner, `bun test`. Name a test file `*.test.ts`.
 
 ## API
 
@@ -85,8 +88,36 @@ uv run pytest
 
 The tests start their own disposable Postgres in Docker, so Docker must be running. They don't touch the compose database.
 
+## API contract
+
+The API's Pydantic models define every request and response. Two generated files carry them to the web app, and both are committed:
+
+- `apps/api/openapi.json` is the OpenAPI document, exported from the app factory with no server running.
+- `apps/web/src/lib/api/generated` is the typed web client, generated from that document by [`@hey-api/openapi-ts`](https://heyapi.dev/openapi-ts/get-started).
+
+After you change a route or a model in the API, regenerate both and commit them with your change:
+
+```sh
+cd apps/api && uv run scripts/export_openapi.py
+cd ../web && bun run generate:api
+```
+
+Never edit either one by hand. The next regeneration overwrites the edit, and CI fails until it's gone.
+
+Call the API from the web app through the generated functions. Each one is named after its Python handler and typed from its models:
+
+```ts
+import { getMe } from '@/lib/api/generated'
+
+const { data, error } = await getMe()
+```
+
+`src/lib/api/client-config.ts` configures the client. It reads the API's base URL from `NEXT_PUBLIC_API_URL`, which Next.js inlines at build time. For operations that need a signed-in user, it sends `Authorization: Bearer <token>` with the token from `setTokenGetter`. Pass it Clerk's `getToken` once the web app signs users in. Until then, no token is sent.
+
 ## CI
 
-`.github/workflows/ci.yml` has one job per app. The `web` job installs, type-checks and builds `apps/web`. It runs only when `apps/web`, the root `package.json`, `bun.lock` or the workflow changes.
+`.github/workflows/ci.yml` has one job per app, plus a contract job. The `web` job installs, type-checks, tests and builds `apps/web`. It runs only when `apps/web`, the root `package.json`, `bun.lock` or the workflow changes.
 
 The `api` job installs `apps/api` with uv and runs ruff, basedpyright and pytest. It runs only when `apps/api` or the workflow changes.
+
+The `contract` job runs when either app's job runs. It exports the OpenAPI document, regenerates the web client and fails if either differs from what's committed. Its error names the two commands from [API contract](#api-contract).
