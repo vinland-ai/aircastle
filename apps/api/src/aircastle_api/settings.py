@@ -1,9 +1,36 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import PositiveInt, PostgresDsn, Secret, ValidationError
+from pydantic import (
+    AfterValidator,
+    Field,
+    HttpUrl,
+    NonNegativeFloat,
+    PositiveInt,
+    PostgresDsn,
+    Secret,
+    TypeAdapter,
+    ValidationError,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 type Environment = Literal["development", "test", "production"]
+
+_HTTP_URL = TypeAdapter(HttpUrl)
+
+
+def _as_origin(value: str) -> str:
+    try:
+        url = _HTTP_URL.validate_python(value)
+    except ValidationError:
+        url = None
+    if url is None or url.path != "/" or url.query or url.fragment or url.username:
+        message = "must be an origin, like https://example.com"
+        raise ValueError(message)
+    return str(url).removesuffix("/")
+
+
+type Origin = Annotated[str, AfterValidator(_as_origin)]
+"""An http(s) scheme, host and optional port, with no trailing slash."""
 
 
 class Settings(BaseSettings):
@@ -14,6 +41,10 @@ class Settings(BaseSettings):
     environment: Environment
     database_url: Secret[PostgresDsn]
     database_pool_size: PositiveInt = 5
+    clerk_issuer: Origin
+    clerk_jwks_url: HttpUrl
+    clerk_authorized_parties: frozenset[Origin] = Field(min_length=1)
+    clerk_jwks_refetch_cooldown_seconds: NonNegativeFloat = 30
 
     def __init__(self) -> None:
         """Read every value from the environment. Settings take no arguments."""
