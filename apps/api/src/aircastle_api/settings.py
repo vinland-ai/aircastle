@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     clerk_jwks_url: HttpUrl
     clerk_authorized_parties: frozenset[Origin] = Field(min_length=1)
     clerk_jwks_refetch_cooldown_seconds: NonNegativeFloat = 30
+    cors_origins: frozenset[Origin] = Field(min_length=1)
     rate_limit: RateLimit = Field(default="120/minute", validate_default=True)
     rate_limit_redis_url: Secret[RedisDsn] | None = None
     client_ip_header: str | None = None

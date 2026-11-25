@@ -28,6 +28,7 @@ VALID_ENVIRONMENT = {
     "CLERK_ISSUER": "https://clerk.aircastle.test",
     "CLERK_JWKS_URL": "https://clerk.aircastle.test/.well-known/jwks.json",
     "CLERK_AUTHORIZED_PARTIES": '["http://localhost:3000"]',
+    "CORS_ORIGINS": '["http://localhost:3000"]',
 }
 
 
