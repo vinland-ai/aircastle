@@ -4,6 +4,7 @@ from pydantic import PositiveInt, PostgresDsn, Secret, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 type Environment = Literal["development", "test", "production"]
+type LogLevel = Literal["debug", "info", "warning", "error"]
 
 
 class Settings(BaseSettings):
@@ -14,6 +15,8 @@ class Settings(BaseSettings):
     environment: Environment
     database_url: Secret[PostgresDsn]
     database_pool_size: PositiveInt = 5
+    logfire_token: Secret[str] | None = None
+    log_level: LogLevel = "info"
 
     def __init__(self) -> None:
         """Read every value from the environment. Settings take no arguments."""

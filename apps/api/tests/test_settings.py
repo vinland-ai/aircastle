@@ -23,6 +23,7 @@ def test_wrong_types_and_malformed_urls_are_all_named(
     environment.setenv("ENVIRONMENT", "staging")
     environment.setenv("DATABASE_URL", "not a url")
     environment.setenv("DATABASE_POOL_SIZE", "many")
+    environment.setenv("LOG_LEVEL", "loud")
 
     with pytest.raises(SettingsError) as raised:
         load_settings()
@@ -33,6 +34,7 @@ def test_wrong_types_and_malformed_urls_are_all_named(
         "ENVIRONMENT",
         "DATABASE_URL",
         "DATABASE_POOL_SIZE",
+        "LOG_LEVEL",
     }
 
 
@@ -52,7 +54,9 @@ def test_startup_error_output_never_contains_a_secret(
 def test_printed_settings_never_contain_a_secret(
     environment: pytest.MonkeyPatch,
 ) -> None:
+    environment.setenv("LOGFIRE_TOKEN", "pylf_v1_us_s3cr3t")
     settings = load_settings()
 
-    assert "hunter2" not in repr(settings)
-    assert "hunter2" not in str(settings)
+    for secret in ("hunter2", "pylf_v1_us_s3cr3t"):
+        assert secret not in repr(settings)
+        assert secret not in str(settings)

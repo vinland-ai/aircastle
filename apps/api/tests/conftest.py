@@ -18,7 +18,13 @@ def environment(
 ) -> pytest.MonkeyPatch:
     """Start from a valid environment, isolated from the shell and any `.env` file."""
     monkeypatch.chdir(tmp_path_factory.mktemp("cwd"))
-    for name in ("ENVIRONMENT", "DATABASE_URL", "DATABASE_POOL_SIZE"):
+    for name in (
+        "ENVIRONMENT",
+        "DATABASE_URL",
+        "DATABASE_POOL_SIZE",
+        "LOGFIRE_TOKEN",
+        "LOG_LEVEL",
+    ):
         monkeypatch.delenv(name, raising=False)
     for name, value in VALID_ENVIRONMENT.items():
         monkeypatch.setenv(name, value)
