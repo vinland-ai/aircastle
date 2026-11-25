@@ -1,0 +1,21 @@
+name: aircastle
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: aircastle
+      POSTGRES_PASSWORD: aircastle
+      POSTGRES_DB: aircastle
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "--username=aircastle", "--dbname=aircastle"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  postgres:
