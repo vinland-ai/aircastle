@@ -78,6 +78,22 @@ async def test_the_not_ready_response_is_declared_as_a_problem(
     }
 
 
+async def test_a_range_of_error_statuses_is_declared_as_a_problem(
+    environment: pytest.MonkeyPatch,
+) -> None:
+    app = create_app(load_settings())
+    app.include_router(widget_routes)
+
+    async with serve(app) as client:
+        response = await client.get("/openapi.json")
+
+    assert response.status_code == 200
+    reserve = response.json()["paths"]["/test/widgets/reserve"]["post"]["responses"]
+    assert reserve["4XX"]["content"] == {
+        PROBLEM_JSON: {"schema": {"$ref": "#/components/schemas/Problem"}}
+    }
+
+
 async def test_only_operations_that_take_input_declare_a_validation_problem(
     environment: pytest.MonkeyPatch,
 ) -> None:

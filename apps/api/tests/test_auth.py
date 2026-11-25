@@ -15,11 +15,13 @@ from fake_clerk import (
     session_claims,
     trust_fake_clerk,
 )
+from fastapi import APIRouter
 from httpx import AsyncClient
 from pytest_httpserver import HTTPServer
 from serving import serve
 
 from aircastle_api.app import create_app
+from aircastle_api.auth import CurrentUser
 from aircastle_api.settings import load_settings
 
 PROBLEM_JSON = "application/problem+json"
@@ -182,3 +184,31 @@ async def test_an_issuer_set_with_a_trailing_slash_still_matches_its_tokens(
         )
 
     assert response.status_code == 200
+
+
+async def read_session(user: CurrentUser) -> dict[str, object]:
+    return {"id": user.id, "session_id": user.session_id, "claims": dict(user.claims)}
+
+
+session_routes = APIRouter(prefix="/test")
+session_routes.add_api_route("/session", read_session, methods=["GET"])
+
+
+async def test_the_current_user_carries_its_session_and_verified_claims(
+    environment: pytest.MonkeyPatch,
+) -> None:
+    claims = session_claims(org_id="org_2aircastle", org_role="org:admin")
+    app = create_app(load_settings())
+    app.include_router(session_routes)
+
+    async with serve(app) as client:
+        response = await client.get(
+            "/test/session", headers=bearer(FIRST_KEY.sign(claims))
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": USER_ID,
+        "session_id": "sess_2aircastle",
+        "claims": claims,
+    }
