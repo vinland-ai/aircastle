@@ -1,6 +1,9 @@
 """Logfire tracing, console logs and request IDs."""
 
 import re
+import sys
+from contextvars import ContextVar
+from typing import TextIO, override
 from uuid import uuid7
 
 import logfire
@@ -9,7 +12,7 @@ from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.instrumentation.urllib import URLLibInstrumentor
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.datastructures import Headers, MutableHeaders
-from starlette.types import Message, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from aircastle_api.settings import Settings
 
@@ -17,18 +20,51 @@ REQUEST_ID_HEADER = "X-Request-ID"
 SAFE_REQUEST_ID = re.compile(r"[A-Za-z0-9._:-]{1,128}")
 
 
-class RequestIdApp(FastAPI):
-    """A FastAPI app that tags each HTTP request with an ID before any other layer.
+_unfinished_line: ContextVar[str] = ContextVar("unfinished_line", default="")
 
-    The tag sits outside Starlette's error middleware, so even the response to an
-    unhandled exception carries the ID in `X-Request-ID`. Every span and log the
-    request produces carries it as the `request_id` attribute.
+
+class _RequestIdConsole(TextIO):
+    """Standard output that starts each line with the request ID of its writer.
+
+    The ID comes from the current request's baggage, so lines written outside
+    a request have no prefix. Each context holds its unfinished line until the
+    line ends, then writes it whole, so concurrent requests never share a line.
     """
+
+    @override
+    def write(self, s: str, /) -> int:
+        lines, newline, unfinished = (_unfinished_line.get() + s).rpartition("\n")
+        _unfinished_line.set(unfinished)
+        if newline:
+            request_id = logfire.get_baggage().get("request_id")
+            prefix = f"[{request_id}] " if request_id else ""
+            sys.stdout.write("".join(f"{prefix}{line}\n" for line in lines.split("\n")))
+        return len(s)
+
+    @override
+    def flush(self) -> None:
+        sys.stdout.flush()
+
+    @override
+    def isatty(self) -> bool:
+        return sys.stdout.isatty()
+
+
+class RequestIds:
+    """An ASGI layer that tags each HTTP request with an ID.
+
+    The response carries the ID in `X-Request-ID`, and every span and log of the
+    request carries it as the `request_id` attribute.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Tag the requests that `app` serves."""
+        self._app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Serve the request with its ID attached to the response and its logs."""
         if scope["type"] != "http":
-            await super().__call__(scope, receive, send)
+            await self._app(scope, receive, send)
             return
 
         incoming = Headers(scope=scope).get(REQUEST_ID_HEADER, "")
@@ -40,10 +76,10 @@ class RequestIdApp(FastAPI):
             await send(message)
 
         with logfire.set_baggage(request_id=request_id):
-            await super().__call__(scope, receive, send_with_id)
+            await self._app(scope, receive, send_with_id)
 
 
-def observe(app: FastAPI, settings: Settings) -> None:
+def configure_observability(app: FastAPI, settings: Settings) -> None:
     """Trace each request and its outgoing HTTP calls, and log them to the console.
 
     Traces reach Logfire only when a token is set. Incoming trace context is
@@ -55,7 +91,9 @@ def observe(app: FastAPI, settings: Settings) -> None:
         environment=settings.environment,
         token=token.get_secret_value() if token else None,
         send_to_logfire="if-token-present",
-        console=logfire.ConsoleOptions(min_log_level=settings.log_level),
+        console=logfire.ConsoleOptions(
+            min_log_level=settings.log_level, output=_RequestIdConsole()
+        ),
         min_level=settings.log_level,
         distributed_tracing=False,
     )
@@ -66,9 +104,7 @@ def observe(app: FastAPI, settings: Settings) -> None:
 def instrument_database(engine: AsyncEngine) -> None:
     """Trace each query `engine` runs, with its timing, inside the current request.
 
-    The instrumentation traces one engine per process, so this moves it from any
-    earlier engine to `engine`. It declares support only below SQLAlchemy 2.1, yet
-    works on 2.1, as the tests show against Postgres, so its version check is off.
+    Only one engine per process is traced, so any earlier engine stops being traced.
     """
     instrumentor = SQLAlchemyInstrumentor()
     if instrumentor.is_instrumented_by_opentelemetry:

@@ -106,6 +106,7 @@ def test_startup_error_output_never_contains_a_secret(
 def test_printed_settings_never_contain_a_secret(
     environment: pytest.MonkeyPatch,
 ) -> None:
+    environment.setenv("DATABASE_URL", "postgresql://aircastle:hunter2@db:5432/app")
     environment.setenv("LOGFIRE_TOKEN", "pylf_v1_us_s3cr3t")
     settings = load_settings()
 
