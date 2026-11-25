@@ -2,8 +2,9 @@ from collections.abc import AsyncIterator
 from http import HTTPStatus
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from pydantic import BaseModel, PositiveInt
+from serving import serve
 
 from aircastle_api.app import create_app
 from aircastle_api.errors import DomainError
@@ -43,10 +44,7 @@ async def client(environment: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
     app.add_api_route("/test/widgets", create_widget, methods=["POST"])
     app.add_api_route("/test/widgets/buy", buy_widget, methods=["POST"])
     app.add_api_route("/test/widgets/break", break_widget, methods=["POST"])
-    async with AsyncClient(
-        transport=ASGITransport(app=app, raise_app_exceptions=False),
-        base_url="http://test",
-    ) as client:
+    async with serve(app) as client:
         yield client
 
 

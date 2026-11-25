@@ -5,8 +5,7 @@ from typing import Protocol, runtime_checkable
 import jwt
 import logfire
 import pytest
-from asgi_lifespan import LifespanManager
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -15,6 +14,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 )
 from opentelemetry.trace import SpanKind
 from pytest_httpserver import HTTPServer
+from serving import serve
 
 from aircastle_api.app import create_app
 from aircastle_api.settings import load_settings
@@ -42,13 +42,7 @@ async def app_client() -> AsyncGenerator[AsyncClient]:
     app = create_app(load_settings())
     app.add_api_route("/test/widgets/buy", buy_widget, methods=["POST"])
     app.add_api_route("/test/widgets/break", break_widget, methods=["POST"])
-    async with (
-        LifespanManager(app) as manager,
-        AsyncClient(
-            transport=ASGITransport(app=manager.app, raise_app_exceptions=False),
-            base_url="http://test",
-        ) as client,
-    ):
+    async with serve(app) as client:
         yield client
 
 

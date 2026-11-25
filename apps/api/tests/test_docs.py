@@ -1,6 +1,7 @@
 import pytest
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from pydantic import BaseModel
+from serving import serve
 
 from aircastle_api.app import create_app
 from aircastle_api.settings import load_settings
@@ -79,9 +80,7 @@ async def test_only_operations_that_take_input_declare_a_validation_problem(
     app = create_app(load_settings())
     app.add_api_route("/test/widgets", create_widget, methods=["POST"])
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with serve(app) as client:
         document = (await client.get("/openapi.json")).json()
 
     widgets = document["paths"]["/test/widgets"]["post"]["responses"]

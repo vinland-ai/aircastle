@@ -2,19 +2,14 @@ import traceback
 
 import pytest
 from fake_clerk import FIRST_KEY, FakeClerk, bearer, session_claims, trust_fake_clerk
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from pytest_httpserver import HTTPServer
+from serving import serve
 
 from aircastle_api.app import create_app
 from aircastle_api.settings import SettingsError, load_settings
 
 PROBLEM_JSON = "application/problem+json"
-
-
-def app_client() -> AsyncClient:
-    """A client for an app built from the environment as it is now."""
-    app = create_app(load_settings())
-    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
 @pytest.fixture(autouse=True)
@@ -61,7 +56,7 @@ async def test_anonymous_callers_behind_the_proxy_are_limited_by_their_own_ip(
     environment: pytest.MonkeyPatch,
 ) -> None:
     environment.setenv("CLIENT_IP_HEADER", "X-Real-IP")
-    async with app_client() as client:
+    async with serve(create_app(load_settings())) as client:
         first = {"X-Real-IP": "203.0.113.7"}
         second = {"X-Real-IP": "198.51.100.23"}
         for _ in range(2):

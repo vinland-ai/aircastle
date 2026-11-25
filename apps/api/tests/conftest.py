@@ -4,14 +4,12 @@ import socket
 import subprocess
 import sys
 from collections.abc import AsyncGenerator, Callable, Generator
-from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
 
 import pytest
-from asgi_lifespan import LifespanManager
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
+from serving import serve
 from sqlalchemy import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 from testcontainers.community.postgres import PostgresContainer
@@ -74,18 +72,6 @@ async def session(
             yield session
         await transaction.rollback()
     await engine.dispose()
-
-
-@asynccontextmanager
-async def serve(app: FastAPI) -> AsyncGenerator[AsyncClient]:
-    """Run the app's lifespan and call it in-process."""
-    async with (
-        LifespanManager(app) as manager,
-        AsyncClient(
-            transport=ASGITransport(app=manager.app), base_url="http://test"
-        ) as client,
-    ):
-        yield client
 
 
 @pytest.fixture
