@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Request
@@ -5,6 +6,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from aircastle_api.database import Database, current_database
+from aircastle_api.errors import problem_response
 from aircastle_api.settings import Environment, Settings
 
 
@@ -21,21 +23,6 @@ class Readiness(BaseModel):
     status: Literal["ready"]
 
 
-def not_ready(request: Request) -> JSONResponse:
-    """An RFC 9457 problem saying the database is not answering."""
-    return JSONResponse(
-        {
-            "type": "about:blank",
-            "title": "Service Unavailable",
-            "status": 503,
-            "detail": "The database is not answering.",
-            "instance": request.url.path,
-        },
-        status_code=503,
-        media_type="application/problem+json",
-    )
-
-
 def health_router(settings: Settings) -> APIRouter:
     """Build the liveness and readiness routes."""
 
@@ -47,7 +34,9 @@ def health_router(settings: Settings) -> APIRouter:
     ) -> Readiness | JSONResponse:
         if await database.answers():
             return Readiness(status="ready")
-        return not_ready(request)
+        return problem_response(
+            request, HTTPStatus.SERVICE_UNAVAILABLE, "The database is not answering."
+        )
 
     router = APIRouter(tags=["health"])
     router.add_api_route("/health", health, methods=["GET"])
