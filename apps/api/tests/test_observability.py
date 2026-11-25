@@ -1,4 +1,7 @@
-from collections.abc import AsyncGenerator, AsyncIterator
+import asyncio
+import re
+import sys
+from collections.abc import AsyncGenerator, AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from typing import Protocol, runtime_checkable
 
@@ -14,7 +17,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 from opentelemetry.trace import SpanKind
 from pytest_httpserver import HTTPServer
 from serving import serve
-from widgets import widget_routes
+from widgets import WIDGETS_PER_BATCH, widget_routes
 
 from aircastle_api.app import create_app
 from aircastle_api.settings import load_settings
@@ -38,6 +41,15 @@ async def app_client() -> AsyncGenerator[AsyncClient]:
 async def client(environment: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
     async with app_client() as client:
         yield client
+
+
+@pytest.fixture
+def eager_thread_switching() -> Iterator[None]:
+    """Switch threads every microsecond, so writes from racing threads interleave."""
+    interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    yield
+    sys.setswitchinterval(interval)
 
 
 def capture_spans() -> InMemorySpanExporter:
@@ -181,6 +193,32 @@ async def test_every_console_line_of_a_request_carries_its_request_id(
     assert log_lines
     for line in request_lines + log_lines:
         assert "req-console" in line
+
+
+async def test_concurrent_requests_each_start_their_console_lines_with_their_own_id(
+    environment: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    eager_thread_switching: None,
+) -> None:
+    async with app_client() as client:
+        await asyncio.gather(
+            *(
+                client.post(
+                    "/test/widgets/count",
+                    params={"batch": batch},
+                    headers={"X-Request-ID": f"req-{batch}"},
+                )
+                for batch in ("a", "b")
+            )
+        )
+
+    lines = capsys.readouterr().out.splitlines()
+    counted = [line for line in lines if "Counted widget" in line]
+    assert len(counted) == 2 * WIDGETS_PER_BATCH
+    for line in counted:
+        assert re.fullmatch(
+            r"\[req-(?P<batch>[ab])\] \S+ +Counted widget \d+ of batch (?P=batch)", line
+        ), line
 
 
 async def test_the_log_level_hides_quieter_logs(

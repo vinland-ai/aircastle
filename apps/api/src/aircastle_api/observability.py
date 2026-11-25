@@ -2,7 +2,8 @@
 
 import re
 import sys
-from io import StringIO
+from contextvars import ContextVar
+from typing import TextIO, override
 from uuid import uuid7
 
 import logfire
@@ -17,37 +18,36 @@ from aircastle_api.settings import Settings
 
 REQUEST_ID_HEADER = "X-Request-ID"
 SAFE_REQUEST_ID = re.compile(r"[A-Za-z0-9._:-]{1,128}")
-_LINE_BREAK = re.compile(r"\n(?=.)")
 
 
-class _RequestIdConsole(StringIO):
+_unfinished_line: ContextVar[str] = ContextVar("unfinished_line", default="")
+
+
+class _RequestIdConsole(TextIO):
     """Standard output that starts each line with the request ID of its writer.
 
     The ID comes from the current request's baggage, so lines written outside
-    a request have no prefix. Nothing is kept in the string buffer.
+    a request have no prefix. Each context holds its unfinished line until the
+    line ends, then writes it whole, so concurrent requests never share a line.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-        self._at_line_start = True
+    @override
+    def write(self, s: str, /) -> int:
+        lines, newline, unfinished = (_unfinished_line.get() + s).rpartition("\n")
+        _unfinished_line.set(unfinished)
+        if newline:
+            request_id = logfire.get_baggage().get("request_id")
+            prefix = f"[{request_id}] " if request_id else ""
+            sys.stdout.write("".join(f"{prefix}{line}\n" for line in lines.split("\n")))
+        return len(s)
 
-    def isatty(self) -> bool:
-        return sys.stdout.isatty()
-
+    @override
     def flush(self) -> None:
         sys.stdout.flush()
 
-    def write(self, s: str, /) -> int:
-        text = s
-        if s and (request_id := logfire.get_baggage().get("request_id")):
-            prefix = f"[{request_id}] "
-            text = _LINE_BREAK.sub(f"\n{prefix}", s)
-            if self._at_line_start:
-                text = f"{prefix}{text}"
-        if s:
-            self._at_line_start = s.endswith("\n")
-        sys.stdout.write(text)
-        return len(s)
+    @override
+    def isatty(self) -> bool:
+        return sys.stdout.isatty()
 
 
 class RequestIds:

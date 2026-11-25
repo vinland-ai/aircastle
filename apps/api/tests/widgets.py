@@ -8,6 +8,8 @@ from pydantic import BaseModel, PositiveInt
 
 from aircastle_api.errors import DomainError, Problem
 
+WIDGETS_PER_BATCH = 200
+
 
 class Widget(BaseModel):
     name: str
@@ -25,6 +27,14 @@ async def create_widget(widget: Widget) -> Widget:
 async def buy_widget() -> dict[str, str]:
     logfire.info("Bought a {widget}", widget="sprocket")
     return {"widget": "sprocket"}
+
+
+def count_widgets(batch: str) -> dict[str, int]:
+    for number in range(WIDGETS_PER_BATCH):
+        logfire.info(
+            "Counted widget {number} of batch {batch}", number=number, batch=batch
+        )
+    return {"counted": WIDGETS_PER_BATCH}
 
 
 async def reserve_widget() -> Widget:
@@ -48,4 +58,5 @@ widget_routes.add_api_route(
     methods=["POST"],
     responses={"4XX": {"model": Problem, "description": "Not reserved"}},
 )
+widget_routes.add_api_route("/count", count_widgets, methods=["POST"])
 widget_routes.add_api_route("/break", break_widget, methods=["POST"])
