@@ -6,7 +6,7 @@ import logfire
 from fastapi import APIRouter
 from pydantic import BaseModel, PositiveInt
 
-from aircastle_api.errors import DomainError
+from aircastle_api.errors import DomainError, Problem
 
 
 class Widget(BaseModel):
@@ -42,5 +42,10 @@ async def break_widget() -> Widget:
 widget_routes = APIRouter(prefix="/test/widgets")
 widget_routes.add_api_route("", create_widget, methods=["POST"])
 widget_routes.add_api_route("/buy", buy_widget, methods=["POST"])
-widget_routes.add_api_route("/reserve", reserve_widget, methods=["POST"])
+widget_routes.add_api_route(
+    "/reserve",
+    reserve_widget,
+    methods=["POST"],
+    responses={"4XX": {"model": Problem, "description": "Not reserved"}},
+)
 widget_routes.add_api_route("/break", break_widget, methods=["POST"])

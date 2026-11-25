@@ -141,7 +141,7 @@ def document_problems(app: FastAPI) -> None:
                     if not {"parameters", "requestBody"} & operation.keys():
                         del responses["422"]
                     for status, response in responses.items():
-                        if status == "default" or int(status) >= 400:
+                        if status == "default" or status.startswith(("4", "5")):
                             content = response["content"]
                             content[PROBLEM_JSON] = content.pop("application/json")
         return generate()
