@@ -16,7 +16,8 @@ from testcontainers.community.postgres import PostgresContainer
 
 from aircastle_api.app import create_app
 from aircastle_api.database import create_engine, database_session
-from aircastle_api.settings import load_settings, placeholder_environment
+from aircastle_api.placeholders import placeholder_environment
+from aircastle_api.settings import load_settings
 
 API_ROOT = Path(__file__).parents[1]
 POSTGRES_IMAGE = "postgres:18-alpine"

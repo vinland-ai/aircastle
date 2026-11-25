@@ -9,7 +9,8 @@ import json
 from pathlib import Path
 
 from aircastle_api.app import create_app
-from aircastle_api.settings import load_settings, placeholder_environment
+from aircastle_api.placeholders import placeholder_environment
+from aircastle_api.settings import load_settings
 
 DOCUMENT = Path(__file__).parents[1] / "openapi.json"
 
