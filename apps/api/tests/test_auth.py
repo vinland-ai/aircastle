@@ -15,8 +15,9 @@ from fake_clerk import (
     session_claims,
     trust_fake_clerk,
 )
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from pytest_httpserver import HTTPServer
+from serving import serve
 
 from aircastle_api.app import create_app
 from aircastle_api.settings import load_settings
@@ -175,11 +176,7 @@ async def test_an_issuer_set_with_a_trailing_slash_still_matches_its_tokens(
     environment: pytest.MonkeyPatch,
 ) -> None:
     environment.setenv("CLERK_ISSUER", f"{ISSUER}/")
-    app = create_app(load_settings())
-
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with serve(create_app(load_settings())) as client:
         response = await client.get(
             "/v1/me", headers=bearer(FIRST_KEY.sign(session_claims()))
         )

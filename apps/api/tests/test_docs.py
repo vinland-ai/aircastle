@@ -1,15 +1,12 @@
 import pytest
-from httpx import ASGITransport, AsyncClient
-from pydantic import BaseModel
+from httpx import AsyncClient
+from serving import serve
+from widgets import widget_routes
 
 from aircastle_api.app import create_app
 from aircastle_api.settings import load_settings
 
 PROBLEM_JSON = "application/problem+json"
-
-
-class Widget(BaseModel):
-    name: str
 
 
 async def test_swagger_ui_is_served_publicly(client: AsyncClient) -> None:
@@ -70,18 +67,24 @@ async def test_every_operation_declares_problem_json_for_its_errors(
     }
 
 
+async def test_the_not_ready_response_is_declared_as_a_problem(
+    client: AsyncClient,
+) -> None:
+    document = (await client.get("/openapi.json")).json()
+
+    not_ready = document["paths"]["/ready"]["get"]["responses"]["503"]
+    assert not_ready["content"] == {
+        PROBLEM_JSON: {"schema": {"$ref": "#/components/schemas/Problem"}}
+    }
+
+
 async def test_only_operations_that_take_input_declare_a_validation_problem(
     environment: pytest.MonkeyPatch,
 ) -> None:
-    async def create_widget(widget: Widget) -> Widget:
-        return widget
-
     app = create_app(load_settings())
-    app.add_api_route("/test/widgets", create_widget, methods=["POST"])
+    app.include_router(widget_routes)
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with serve(app) as client:
         document = (await client.get("/openapi.json")).json()
 
     widgets = document["paths"]["/test/widgets"]["post"]["responses"]

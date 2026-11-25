@@ -4,44 +4,35 @@ import socket
 import subprocess
 import sys
 from collections.abc import AsyncGenerator, Callable, Generator
-from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
 
 import pytest
-from asgi_lifespan import LifespanManager
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
+from serving import serve
 from sqlalchemy import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 from testcontainers.community.postgres import PostgresContainer
 
 from aircastle_api.app import create_app
 from aircastle_api.database import create_engine, database_session
-from aircastle_api.settings import Settings, load_settings
+from aircastle_api.settings import load_settings, placeholder_environment
 
 API_ROOT = Path(__file__).parents[1]
 POSTGRES_IMAGE = "postgres:18-alpine"
-VALID_ENVIRONMENT = {
-    "ENVIRONMENT": "test",
-    "DATABASE_URL": "postgresql://aircastle:hunter2@localhost:5432/aircastle",
-    "CLERK_ISSUER": "https://clerk.aircastle.test",
-    "CLERK_JWKS_URL": "https://clerk.aircastle.test/.well-known/jwks.json",
-    "CLERK_AUTHORIZED_PARTIES": '["http://localhost:3000"]',
-    "CORS_ORIGINS": '["http://localhost:3000"]',
-}
 
 
 def alembic(database_url: str, *arguments: str) -> str:
     """Run the Alembic CLI from the API root against the given database."""
-    return subprocess.run(
-        [sys.executable, "-m", "alembic", *arguments],
-        cwd=API_ROOT,
-        env={**os.environ, **VALID_ENVIRONMENT, "DATABASE_URL": database_url},
-        check=True,
-        stdout=subprocess.PIPE,
-        text=True,
-    ).stdout
+    with placeholder_environment():
+        return subprocess.run(
+            [sys.executable, "-m", "alembic", *arguments],
+            cwd=API_ROOT,
+            env={**os.environ, "DATABASE_URL": database_url},
+            check=True,
+            stdout=subprocess.PIPE,
+            text=True,
+        ).stdout
 
 
 @pytest.fixture(scope="session")
@@ -60,16 +51,10 @@ def migrate(database_url: str) -> Callable[..., str]:
 
 
 @pytest.fixture
-def environment(
-    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
-) -> pytest.MonkeyPatch:
+def environment() -> Generator[pytest.MonkeyPatch]:
     """Start from a valid environment, isolated from the shell and any `.env` file."""
-    monkeypatch.chdir(tmp_path_factory.mktemp("cwd"))
-    for name in Settings.model_fields:
-        monkeypatch.delenv(name.upper(), raising=False)
-    for name, value in VALID_ENVIRONMENT.items():
-        monkeypatch.setenv(name, value)
-    return monkeypatch
+    with placeholder_environment(), pytest.MonkeyPatch.context() as monkeypatch:
+        yield monkeypatch
 
 
 @pytest.fixture
@@ -87,18 +72,6 @@ async def session(
             yield session
         await transaction.rollback()
     await engine.dispose()
-
-
-@asynccontextmanager
-async def serve(app: FastAPI) -> AsyncGenerator[AsyncClient]:
-    """Run the app's lifespan and call it in-process."""
-    async with (
-        LifespanManager(app) as manager,
-        AsyncClient(
-            transport=ASGITransport(app=manager.app), base_url="http://test"
-        ) as client,
-    ):
-        yield client
 
 
 @pytest.fixture

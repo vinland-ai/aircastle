@@ -1,19 +1,19 @@
 """Clerk session authentication: verify the bearer JWT and name the signed-in user."""
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Annotated
 
 import anyio.to_thread
 import jwt
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.security.utils import get_authorization_scheme_param
 from jwt import PyJWKClient, PyJWKClientConnectionError
 
 from aircastle_api.errors import DomainError
 from aircastle_api.settings import Settings
+from aircastle_api.state import app_state
 
 _CHALLENGE = {"WWW-Authenticate": "Bearer"}
 _INVALID_TOKEN = {"WWW-Authenticate": 'Bearer error="invalid_token"'}
@@ -37,8 +37,6 @@ class User:
     """A signed-in Clerk user, read from a verified session token."""
 
     id: str
-    session_id: str
-    claims: Mapping[str, object]
 
 
 class ClerkSessions:
@@ -89,31 +87,43 @@ class ClerkSessions:
                 "The session token was issued for another origin.",
                 headers=_INVALID_TOKEN,
             )
-        return User(id=claims["sub"], session_id=claims["sid"], claims=claims)
+        return User(id=claims["sub"])
 
 
-def add_auth(app: FastAPI, settings: Settings) -> None:
-    """Let the app verify Clerk sessions, for `CurrentUser` and `optional_user`."""
-    app.state.clerk_sessions = ClerkSessions(settings)
+async def authenticate(request: Request) -> User | DomainError | None:
+    """Check the request's Authorization header once, and return the outcome.
 
-
-async def optional_user(request: Request) -> User | None:
-    """The signed-in user, or None when the request has no Authorization header.
-
-    A header that holds no valid bearer token is a 401. This does not mark a
-    route as secured in OpenAPI, so it suits code that serves anyone, such as
-    a rate limiter keyed by user.
+    The outcome is the signed-in user, the error that rejects the header, or
+    None when there is no header. Nothing is raised, so code that serves
+    anyone, such as the rate limiter, can still see the request.
     """
     authorization = request.headers.get("Authorization")
     if authorization is None:
         return None
     scheme, token = get_authorization_scheme_param(authorization)
     if scheme.lower() != "bearer" or not token:
-        raise UnauthorizedError(
+        return UnauthorizedError(
             "The Authorization header must hold a bearer token.", headers=_CHALLENGE
         )
-    sessions: ClerkSessions = request.app.state.clerk_sessions
-    return await sessions.verify(token)
+    try:
+        return await app_state(request)["clerk_sessions"].verify(token)
+    except DomainError as error:
+        return error
+
+
+Authentication = Annotated[User | DomainError | None, Depends(authenticate)]
+"""Declare a parameter of this type to read the outcome of `authenticate`."""
+
+
+async def optional_user(authentication: Authentication) -> User | None:
+    """The signed-in user, or None when the request has no Authorization header.
+
+    A header that holds no valid bearer token is a 401. This does not mark a
+    route as secured in OpenAPI.
+    """
+    if isinstance(authentication, DomainError):
+        raise authentication
+    return authentication
 
 
 _bearer = HTTPBearer(auto_error=False, description="A Clerk session token.")

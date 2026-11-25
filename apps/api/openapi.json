@@ -65,7 +65,14 @@
             }
           },
           "503": {
-            "description": "Postgres is not answering."
+            "description": "Postgres is not answering.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       }

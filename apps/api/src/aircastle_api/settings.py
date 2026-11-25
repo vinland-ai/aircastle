@@ -1,4 +1,9 @@
+import os
+from collections.abc import Generator
+from contextlib import chdir, contextmanager
+from tempfile import TemporaryDirectory
 from typing import Annotated, Literal
+from unittest.mock import patch
 
 from limits import RateLimitItem, parse
 from pydantic import (
@@ -83,3 +88,27 @@ def load_settings() -> Settings:
         return Settings()
     except ValidationError as error:
         raise SettingsError(error) from None
+
+
+_PLACEHOLDERS = {
+    "ENVIRONMENT": "test",
+    "DATABASE_URL": "postgresql://aircastle:aircastle@localhost:5432/aircastle",
+    "CLERK_ISSUER": "https://clerk.aircastle.invalid",
+    "CLERK_JWKS_URL": "https://clerk.aircastle.invalid/.well-known/jwks.json",
+    "CLERK_AUTHORIZED_PARTIES": '["http://localhost:3000"]',
+    "CORS_ORIGINS": '["http://localhost:3000"]',
+}
+
+
+@contextmanager
+def placeholder_environment() -> Generator[None]:
+    """Within the block, settings read valid placeholders that reach no real service.
+
+    Every settings variable is replaced, and the working directory is an empty
+    one with no `.env` file. The environment and directory return on exit.
+    """
+    with patch.dict(os.environ), TemporaryDirectory() as empty, chdir(empty):
+        for name in Settings.model_fields:
+            os.environ.pop(name.upper(), None)
+        os.environ.update(_PLACEHOLDERS)
+        yield

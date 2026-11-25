@@ -155,7 +155,7 @@ export type ReadyErrors = {
     /**
      * Postgres is not answering.
      */
-    503: unknown;
+    503: Problem;
     /**
      * Problem
      */

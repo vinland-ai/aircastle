@@ -2,19 +2,14 @@ import traceback
 
 import pytest
 from fake_clerk import FIRST_KEY, FakeClerk, bearer, session_claims, trust_fake_clerk
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from pytest_httpserver import HTTPServer
+from serving import serve
 
 from aircastle_api.app import create_app
 from aircastle_api.settings import SettingsError, load_settings
 
 PROBLEM_JSON = "application/problem+json"
-
-
-def app_client() -> AsyncClient:
-    """A client for an app built from the environment as it is now."""
-    app = create_app(load_settings())
-    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
 @pytest.fixture(autouse=True)
@@ -42,6 +37,18 @@ async def test_a_caller_over_the_limit_gets_a_429_problem_with_retry_after(
     assert problem["instance"] == "/v1/me"
 
 
+async def test_a_flood_of_invalid_tokens_from_one_ip_is_limited(
+    client: AsyncClient,
+) -> None:
+    for attempt in range(2):
+        rejected = await client.get("/v1/me", headers=bearer(f"not.a.jwt{attempt}"))
+        assert rejected.status_code == 401
+
+    response = await client.get("/v1/me", headers=bearer("not.a.jwt2"))
+
+    assert response.status_code == 429
+
+
 async def test_signed_in_users_have_separate_limits(client: AsyncClient) -> None:
     alice = bearer(FIRST_KEY.sign(session_claims(sub="user_alice")))
     bob = bearer(FIRST_KEY.sign(session_claims(sub="user_bob")))
@@ -61,7 +68,7 @@ async def test_anonymous_callers_behind_the_proxy_are_limited_by_their_own_ip(
     environment: pytest.MonkeyPatch,
 ) -> None:
     environment.setenv("CLIENT_IP_HEADER", "X-Real-IP")
-    async with app_client() as client:
+    async with serve(create_app(load_settings())) as client:
         first = {"X-Real-IP": "203.0.113.7"}
         second = {"X-Real-IP": "198.51.100.23"}
         for _ in range(2):
@@ -73,6 +80,21 @@ async def test_anonymous_callers_behind_the_proxy_are_limited_by_their_own_ip(
 
     assert limited.status_code == 429
     assert other.status_code == 401
+
+
+async def test_a_client_ip_header_that_is_not_one_ip_counts_against_the_peer(
+    environment: pytest.MonkeyPatch,
+) -> None:
+    environment.setenv("CLIENT_IP_HEADER", "X-Forwarded-For")
+    spoofed = ["203.0.113.1, 10.0.0.1", "203.0.113.2,10.0.0.1", "not-an-ip"]
+
+    async with serve(create_app(load_settings())) as client:
+        responses = [
+            await client.get("/v1/me", headers={"X-Forwarded-For": value})
+            for value in spoofed
+        ]
+
+    assert [response.status_code for response in responses] == [401, 401, 429]
 
 
 async def test_a_caller_cannot_dodge_the_limit_with_an_untrusted_ip_header(
