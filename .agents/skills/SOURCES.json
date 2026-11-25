@@ -19,6 +19,14 @@
       "addedLicenseFiles": [
         "LICENSE.md"
       ]
+    },
+    {
+      "name": "vercel-react-best-practices",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "path": "skills/react-best-practices",
+      "commit": "5a37a6329fbad3666c3207392a6a7c0110e92efb",
+      "localEdits": [],
+      "addedLicenseFiles": []
     }
   ]
 }
