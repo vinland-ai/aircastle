@@ -1,0 +1,283 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Aircastle API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Ready",
+        "operationId": "ready",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Postgres is not answering."
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Get Me",
+        "description": "Return the signed-in user's Clerk ID.",
+        "operationId": "get_me",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Environment": {
+        "type": "string",
+        "enum": [
+          "development",
+          "test",
+          "production"
+        ]
+      },
+      "FieldError": {
+        "properties": {
+          "path": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Path"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "message"
+        ],
+        "title": "FieldError",
+        "description": "One invalid part of a request: where it is, and why it failed."
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/Environment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "environment"
+        ],
+        "title": "Health",
+        "description": "Liveness of the process, with the environment it runs in."
+      },
+      "Me": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "Me",
+        "description": "The signed-in user."
+      },
+      "Problem": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "default": "about:blank"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "instance": {
+            "type": "string",
+            "title": "Instance"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "status",
+          "detail",
+          "instance"
+        ],
+        "title": "Problem",
+        "description": "An RFC 9457 problem details body."
+      },
+      "Readiness": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ready",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Readiness",
+        "description": "The instance can serve traffic: Postgres answers."
+      },
+      "ValidationProblem": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "default": "about:blank"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "instance": {
+            "type": "string",
+            "title": "Instance"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "type": "array",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "status",
+          "detail",
+          "instance",
+          "errors"
+        ],
+        "title": "ValidationProblem",
+        "description": "A problem for a request that failed validation, listing each failure."
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "description": "A Clerk session token.",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
