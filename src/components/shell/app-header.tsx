@@ -2,17 +2,20 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { CustomSidebarTrigger } from './custom-sidebar-trigger'
-import { NavUser, type ShellAccount } from './nav-user'
+import { NavUser } from './nav-user'
+import { demoUser } from './data'
 import { ThemeSwitcher } from './theme-switcher'
 import { BookOpenIcon, CrownIcon, PlugIcon, PlusIcon } from 'lucide-react'
 import { MarkGithubIcon } from '@primer/octicons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { PageSearch } from '@/features/navigation'
-import { Link, useParams } from '@tanstack/react-router'
+import { PageSearch, projectHref, useProjectParams } from '@/features/navigation'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ProjectSwitcher } from './project-switcher'
 
-export function AppHeader({ account }: { account: ShellAccount }) {
-  const params = useParams({ from: '/dash/workspaces/$workspaceId/projects/$projectId' })
+export function AppHeader() {
+  const params = useProjectParams()
+  const router = useRouter()
   return (
     <header
       className={cn(
@@ -21,8 +24,7 @@ export function AppHeader({ account }: { account: ShellAccount }) {
       )}
     >
       <Link
-        to="/dash/workspaces/$workspaceId/projects/$projectId/collections"
-        params={params}
+        href={projectHref(params, 'collections')}
         aria-label="Aircastle"
         className="brand-link flex h-full w-14 shrink-0 items-center justify-center border-r outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
@@ -96,7 +98,7 @@ export function AppHeader({ account }: { account: ShellAccount }) {
           <CrownIcon data-icon="inline-start" aria-hidden="true" />
           Upgrade
         </Button>
-        <NavUser {...account} />
+        <NavUser user={demoUser} signOut={async () => router.push('/')} />
       </div>
     </header>
   )

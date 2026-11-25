@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import Link from 'next/link'
 import { ArrowRightIcon } from 'lucide-react'
 import { Header } from './header'
 import { ProductDemo } from './product-demo'
@@ -8,11 +8,11 @@ const heroWords = ['write', 'research', 'publish', 'audit'] as const
 const seeInActionClassName =
   'group inline-flex items-center gap-1.5 rounded-lg px-0 py-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:px-4'
 
-/** The public landing page. `earlyAccess` hides links into unbuilt pages and sends every call to action to sign-in. */
-export function MarketingPage({ earlyAccess = false }: { earlyAccess?: boolean }) {
+/** The public landing page. */
+export function MarketingPage() {
   return (
     <div data-theme-scope="marketing" className="flex min-h-svh flex-col">
-      <Header earlyAccess={earlyAccess} />
+      <Header />
       <main data-theme-scope="marketing" className="flex-1">
         <section className="mx-auto w-full max-w-[70rem] px-4 pt-10 pb-12 md:pt-24 md:pb-16">
           <p className="mb-6 inline-flex items-center gap-1.5 text-base text-muted-foreground md:mb-10 md:text-lg">
@@ -43,28 +43,18 @@ export function MarketingPage({ earlyAccess = false }: { earlyAccess?: boolean }
           </p>
           <div className="mt-8 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2 md:mt-10">
             <Link
-              to="/sign-in"
+              href="/dash"
               className="inline-flex items-center rounded-lg bg-primary px-4 py-2 font-[400] text-primary-foreground transition-colors hover:bg-primary/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               Get started
             </Link>
-            {earlyAccess ? (
-              <Link to="/sign-in" className={seeInActionClassName}>
-                See Aircastle in action
-                <ArrowRightIcon
-                  aria-hidden="true"
-                  className="size-5 transition-transform group-hover:translate-x-0.5"
-                />
-              </Link>
-            ) : (
-              <a href="#product-demo" className={seeInActionClassName}>
-                See Aircastle in action
-                <ArrowRightIcon
-                  aria-hidden="true"
-                  className="size-5 transition-transform group-hover:translate-x-0.5"
-                />
-              </a>
-            )}
+            <a href="#product-demo" className={seeInActionClassName}>
+              See Aircastle in action
+              <ArrowRightIcon
+                aria-hidden="true"
+                className="size-5 transition-transform group-hover:translate-x-0.5"
+              />
+            </a>
           </div>
         </section>
         <ProductDemo />

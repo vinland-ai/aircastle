@@ -14,22 +14,22 @@ export const navigationGroups = [
     items: [
       {
         title: 'Tasks',
-        path: '/dash/workspaces/$workspaceId/projects/$projectId/tasks',
+        slug: 'tasks',
         icon: ListTodoIcon,
       },
       {
         title: 'Collections',
-        path: '/dash/workspaces/$workspaceId/projects/$projectId/collections',
+        slug: 'collections',
         icon: LayoutGridIcon,
       },
       {
         title: 'Media Library',
-        path: '/dash/workspaces/$workspaceId/projects/$projectId/media',
+        slug: 'media',
         icon: ImagesIcon,
       },
       {
         title: 'Analytics',
-        path: '/dash/workspaces/$workspaceId/projects/$projectId/analytics',
+        slug: 'analytics',
         icon: BarChart3Icon,
       },
     ],
@@ -39,17 +39,17 @@ export const navigationGroups = [
     items: [
       {
         title: 'Users',
-        path: '/dash/workspaces/$workspaceId/projects/$projectId/users',
+        slug: 'users',
         icon: UsersIcon,
       },
       {
         title: 'Access Tokens',
-        path: '/dash/workspaces/$workspaceId/projects/$projectId/access-tokens',
+        slug: 'access-tokens',
         icon: KeyRoundIcon,
       },
       {
         title: 'Settings',
-        path: '/dash/workspaces/$workspaceId/projects/$projectId/settings',
+        slug: 'settings',
         icon: SettingsIcon,
       },
     ],

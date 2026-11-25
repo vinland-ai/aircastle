@@ -1,11 +1,13 @@
+'use client'
+
 import { useEffect, useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import Link from 'next/link'
 import { cn } from 'cn'
-import { ArrowRightIcon, BookOpenIcon } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { ArrowRightIcon } from 'lucide-react'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeSwitcher } from '@/components/shell'
 
-export function Header({ earlyAccess }: { earlyAccess: boolean }) {
+export function Header() {
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export function Header({ earlyAccess }: { earlyAccess: boolean }) {
         className="mx-auto flex min-h-16 w-full max-w-[70rem] items-center justify-between gap-2 px-4 sm:gap-4"
       >
         <Link
-          to="/"
+          href="/"
           aria-label="Aircastle home"
           className="brand-link inline-flex items-center gap-2.5 rounded-md p-1 text-[1.375rem] font-[400] focus-visible:outline-2 focus-visible:outline-ring sm:p-2"
         >
@@ -36,22 +38,6 @@ export function Header({ earlyAccess }: { earlyAccess: boolean }) {
         </Link>
         <div className="flex items-center gap-1">
           <TooltipProvider>
-            {!earlyAccess && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <a
-                      href="/docs"
-                      aria-label="Documentation"
-                      className="inline-flex size-9 items-center justify-center rounded-lg text-foreground hover:text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-solid"
-                    />
-                  }
-                >
-                  <BookOpenIcon aria-hidden="true" className="size-5" />
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Docs</TooltipContent>
-              </Tooltip>
-            )}
             <ThemeSwitcher className="size-9 rounded-lg text-foreground hover:text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-solid [&_svg]:size-5!" />
           </TooltipProvider>
           <span
@@ -60,7 +46,7 @@ export function Header({ earlyAccess }: { earlyAccess: boolean }) {
             className="mx-1 hidden h-5 w-px bg-border min-[400px]:block"
           />
           <Link
-            to={earlyAccess ? '/sign-in' : '/dash'}
+            href="/dash"
             aria-label="Open Aircastle"
             className="group inline-flex items-center gap-1.5 rounded-lg px-2 py-2 whitespace-nowrap text-foreground hover:text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring min-[400px]:px-3"
           >

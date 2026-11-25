@@ -1,7 +1,12 @@
+'use client'
+
+
 import { useEffect, useState } from 'react'
-import { Link, useParams, useNavigate } from '@tanstack/react-router'
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
 import { SearchIcon } from 'lucide-react'
 import { navigationGroups } from '@/features/navigation/pages'
+import { projectHref, useProjectParams } from './project'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import {
@@ -22,7 +27,8 @@ import {
 } from '@/components/ui/command'
 
 export function SidebarNavigation() {
-  const params = useParams({ from: '/dash/workspaces/$workspaceId/projects/$projectId' })
+  const params = useProjectParams()
+  const pathname = usePathname()
 
   return navigationGroups.map((group) => (
     <SidebarGroup
@@ -33,23 +39,27 @@ export function SidebarNavigation() {
         {group.label}
       </SidebarGroupLabel>
       <SidebarMenu>
-        {group.items.map((item) => (
-          <SidebarMenuItem key={item.path}>
-            <SidebarMenuButton
-              render={
-                <Link
-                  to={item.path}
-                  params={params}
-                  activeProps={{ 'aria-current': 'page', 'data-active': true }}
-                />
-              }
-              tooltip={item.title}
-            >
-              <item.icon aria-hidden="true" />
-              <span>{item.title}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
+        {group.items.map((item) => {
+          const href = projectHref(params, item.slug)
+          const active = pathname === href
+          return (
+            <SidebarMenuItem key={item.slug}>
+              <SidebarMenuButton
+                render={
+                  <Link
+                    href={href}
+                    aria-current={active ? 'page' : undefined}
+                    data-active={active || undefined}
+                  />
+                }
+                tooltip={item.title}
+              >
+                <item.icon aria-hidden="true" />
+                <span>{item.title}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )
+        })}
       </SidebarMenu>
     </SidebarGroup>
   ))
@@ -57,8 +67,8 @@ export function SidebarNavigation() {
 
 export function PageSearch() {
   const [open, setOpen] = useState(false)
-  const navigate = useNavigate()
-  const params = useParams({ from: '/dash/workspaces/$workspaceId/projects/$projectId' })
+  const router = useRouter()
+  const params = useProjectParams()
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -101,10 +111,11 @@ export function PageSearch() {
               <CommandGroup key={group.label} heading={group.label}>
                 {group.items.map((item) => (
                   <CommandItem
-                    key={item.path}
+                    key={item.slug}
                     value={item.title}
                     onSelect={() => {
-                      void navigate({ to: item.path, params }).then(() => setOpen(false))
+                      router.push(projectHref(params, item.slug))
+                      setOpen(false)
                     }}
                   >
                     <item.icon aria-hidden="true" />

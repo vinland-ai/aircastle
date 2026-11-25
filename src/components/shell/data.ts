@@ -1,3 +1,5 @@
+export const demoUser = { name: 'Demo User', email: 'demo@aircastle.app' }
+
 export const initialProject = { workspace: 'Acme Inc', plan: 'Free', name: 'Technical Blog' }
 
 export const projects = [

@@ -1,25 +1,20 @@
+'use client'
+
 import { cn } from '@/lib/utils'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { AppHeader } from './app-header'
 import { AppSidebar } from './app-sidebar'
-import { NavUser, type ShellAccount } from './nav-user'
 import { ThemeSwitcher } from './theme-switcher'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
-export function AppShell({
-  children,
-  account,
-}: {
-  children: React.ReactNode
-  account: ShellAccount
-}) {
+export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <TooltipProvider>
       <SidebarProvider
         data-theme-scope="dashboard"
         className="flex-col [--app-header-height:3.5rem] [--app-wrapper-max-width:80rem] [--sidebar-top:var(--app-header-height)]"
       >
-        <AppHeader account={account} />
+        <AppHeader />
         <div className="flex flex-1">
           <AppSidebar />
           <SidebarInset>
@@ -40,12 +35,3 @@ export function AppShell({
 
 export { GeneratedAvatar } from './generated-avatar'
 export { ThemeSwitcher } from './theme-switcher'
-
-export function AccountControls({ account }: { account: ShellAccount }) {
-  return (
-    <TooltipProvider>
-      <ThemeSwitcher />
-      <NavUser {...account} />
-    </TooltipProvider>
-  )
-}

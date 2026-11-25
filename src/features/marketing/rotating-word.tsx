@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import styles from './rotating-word.module.css'
 import { usePrefersReducedMotion } from './use-prefers-reduced-motion'
