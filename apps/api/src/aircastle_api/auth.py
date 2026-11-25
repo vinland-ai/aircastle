@@ -97,23 +97,41 @@ def add_auth(app: FastAPI, settings: Settings) -> None:
     app.state.clerk_sessions = ClerkSessions(settings)
 
 
-async def optional_user(request: Request) -> User | None:
-    """The signed-in user, or None when the request has no Authorization header.
+async def authenticate(request: Request) -> User | DomainError | None:
+    """Check the request's Authorization header once, and return the outcome.
 
-    A header that holds no valid bearer token is a 401. This does not mark a
-    route as secured in OpenAPI, so it suits code that serves anyone, such as
-    a rate limiter keyed by user.
+    The outcome is the signed-in user, the error that rejects the header, or
+    None when there is no header. Nothing is raised, so code that serves
+    anyone, such as the rate limiter, can still see the request.
     """
     authorization = request.headers.get("Authorization")
     if authorization is None:
         return None
     scheme, token = get_authorization_scheme_param(authorization)
     if scheme.lower() != "bearer" or not token:
-        raise UnauthorizedError(
+        return UnauthorizedError(
             "The Authorization header must hold a bearer token.", headers=_CHALLENGE
         )
     sessions: ClerkSessions = request.app.state.clerk_sessions
-    return await sessions.verify(token)
+    try:
+        return await sessions.verify(token)
+    except DomainError as error:
+        return error
+
+
+Authentication = Annotated[User | DomainError | None, Depends(authenticate)]
+"""Declare a parameter of this type to read the outcome of `authenticate`."""
+
+
+async def optional_user(authentication: Authentication) -> User | None:
+    """The signed-in user, or None when the request has no Authorization header.
+
+    A header that holds no valid bearer token is a 401. This does not mark a
+    route as secured in OpenAPI.
+    """
+    if isinstance(authentication, DomainError):
+        raise authentication
+    return authentication
 
 
 _bearer = HTTPBearer(auto_error=False, description="A Clerk session token.")

@@ -37,6 +37,18 @@ async def test_a_caller_over_the_limit_gets_a_429_problem_with_retry_after(
     assert problem["instance"] == "/v1/me"
 
 
+async def test_a_flood_of_invalid_tokens_from_one_ip_is_limited(
+    client: AsyncClient,
+) -> None:
+    for attempt in range(2):
+        rejected = await client.get("/v1/me", headers=bearer(f"not.a.jwt{attempt}"))
+        assert rejected.status_code == 401
+
+    response = await client.get("/v1/me", headers=bearer("not.a.jwt2"))
+
+    assert response.status_code == 429
+
+
 async def test_signed_in_users_have_separate_limits(client: AsyncClient) -> None:
     alice = bearer(FIRST_KEY.sign(session_claims(sub="user_alice")))
     bob = bearer(FIRST_KEY.sign(session_claims(sub="user_bob")))
