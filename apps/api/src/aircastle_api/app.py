@@ -1,10 +1,10 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from operator import attrgetter
 from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.routing import APIRoute
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from aircastle_api.auth import ClerkSessions
@@ -20,10 +20,6 @@ from aircastle_api.rate_limit import RateLimiter
 from aircastle_api.settings import Settings
 from aircastle_api.state import AppState
 from aircastle_api.v1 import v1_router
-
-
-def _handler_name(route: APIRoute) -> str:
-    return route.name
 
 
 def _with_outer_layers(app: ASGIApp, settings: Settings) -> ASGIApp:
@@ -70,7 +66,7 @@ def create_app(settings: Settings) -> FastAPI:
         lifespan=lifespan,
         redoc_url=None,
         responses=PROBLEM_RESPONSES,
-        generate_unique_id_function=_handler_name,
+        generate_unique_id_function=attrgetter("name"),
     )
     observe(app, settings)
     add_problem_handlers(app)
