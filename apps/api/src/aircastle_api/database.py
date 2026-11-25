@@ -16,6 +16,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 from aircastle_api.observability import instrument_database
 from aircastle_api.settings import Settings
+from aircastle_api.state import app_state
 
 PING_TIMEOUT_SECONDS = 2
 
@@ -67,8 +68,7 @@ async def open_database(settings: Settings) -> AsyncGenerator[Database]:
 
 def current_database(request: Request) -> Database:
     """The database the app opened at startup."""
-    database: Database = request.state.database
-    return database
+    return app_state(request)["database"]
 
 
 async def database_session(

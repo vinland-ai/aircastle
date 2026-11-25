@@ -7,13 +7,14 @@ from typing import Annotated
 
 import anyio.to_thread
 import jwt
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.security.utils import get_authorization_scheme_param
 from jwt import PyJWKClient, PyJWKClientConnectionError
 
 from aircastle_api.errors import DomainError
 from aircastle_api.settings import Settings
+from aircastle_api.state import app_state
 
 _CHALLENGE = {"WWW-Authenticate": "Bearer"}
 _INVALID_TOKEN = {"WWW-Authenticate": 'Bearer error="invalid_token"'}
@@ -92,11 +93,6 @@ class ClerkSessions:
         return User(id=claims["sub"], session_id=claims["sid"], claims=claims)
 
 
-def add_auth(app: FastAPI, settings: Settings) -> None:
-    """Let the app verify Clerk sessions, for `CurrentUser` and `optional_user`."""
-    app.state.clerk_sessions = ClerkSessions(settings)
-
-
 async def authenticate(request: Request) -> User | DomainError | None:
     """Check the request's Authorization header once, and return the outcome.
 
@@ -112,9 +108,8 @@ async def authenticate(request: Request) -> User | DomainError | None:
         return UnauthorizedError(
             "The Authorization header must hold a bearer token.", headers=_CHALLENGE
         )
-    sessions: ClerkSessions = request.app.state.clerk_sessions
     try:
-        return await sessions.verify(token)
+        return await app_state(request)["clerk_sessions"].verify(token)
     except DomainError as error:
         return error
 

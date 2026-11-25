@@ -5,13 +5,14 @@ import time
 from http import HTTPStatus
 from ipaddress import ip_address
 
-from fastapi import FastAPI, Request
+from fastapi import Request
 from limits.aio.storage import MemoryStorage, RedisStorage, Storage
 from limits.aio.strategies import MovingWindowRateLimiter
 
 from aircastle_api.auth import Authentication, User
 from aircastle_api.errors import DomainError
 from aircastle_api.settings import Settings
+from aircastle_api.state import app_state
 
 
 class RateLimitedError(DomainError):
@@ -56,16 +57,10 @@ class RateLimiter:
         return request.client.host if request.client else "unknown"
 
 
-def add_rate_limit(app: FastAPI, settings: Settings) -> None:
-    """Let the app limit request rates, for the `rate_limit` dependency."""
-    app.state.rate_limiter = RateLimiter(settings)
-
-
 async def rate_limit(request: Request, authentication: Authentication) -> None:
     """Count the request against its caller's limit. Over the limit is a 429.
 
     A request with an invalid token counts against its client IP.
     """
-    limiter: RateLimiter = request.app.state.rate_limiter
     user = authentication if isinstance(authentication, User) else None
-    await limiter.hit(request, user)
+    await app_state(request)["rate_limiter"].hit(request, user)
