@@ -4,11 +4,14 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from aircastle_api.app import create_app
-from aircastle_api.settings import load_settings
+from aircastle_api.settings import Settings, load_settings
 
 VALID_ENVIRONMENT = {
     "ENVIRONMENT": "test",
     "DATABASE_URL": "postgresql://aircastle:hunter2@localhost:5432/aircastle",
+    "CLERK_ISSUER": "https://clerk.aircastle.test",
+    "CLERK_JWKS_URL": "https://clerk.aircastle.test/.well-known/jwks.json",
+    "CLERK_AUTHORIZED_PARTIES": '["http://localhost:3000"]',
 }
 
 
@@ -18,14 +21,8 @@ def environment(
 ) -> pytest.MonkeyPatch:
     """Start from a valid environment, isolated from the shell and any `.env` file."""
     monkeypatch.chdir(tmp_path_factory.mktemp("cwd"))
-    for name in (
-        "ENVIRONMENT",
-        "DATABASE_URL",
-        "DATABASE_POOL_SIZE",
-        "LOGFIRE_TOKEN",
-        "LOG_LEVEL",
-    ):
-        monkeypatch.delenv(name, raising=False)
+    for name in Settings.model_fields:
+        monkeypatch.delenv(name.upper(), raising=False)
     for name, value in VALID_ENVIRONMENT.items():
         monkeypatch.setenv(name, value)
     return monkeypatch

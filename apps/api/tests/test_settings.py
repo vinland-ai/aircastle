@@ -38,6 +38,35 @@ def test_wrong_types_and_malformed_urls_are_all_named(
     }
 
 
+def test_clerk_values_that_are_not_origins_or_urls_are_all_named(
+    environment: pytest.MonkeyPatch,
+) -> None:
+    environment.setenv("CLERK_ISSUER", "https://clerk.aircastle.test/v1")
+    environment.setenv("CLERK_JWKS_URL", "jwks.json")
+    environment.setenv("CLERK_AUTHORIZED_PARTIES", '["localhost:3000"]')
+    environment.setenv("CLERK_JWKS_REFETCH_COOLDOWN_SECONDS", "-1")
+
+    with pytest.raises(SettingsError) as raised:
+        load_settings()
+
+    lines = str(raised.value).splitlines()
+    assert {line.split(":")[0].strip() for line in lines[1:]} == {
+        "CLERK_ISSUER",
+        "CLERK_JWKS_URL",
+        "CLERK_AUTHORIZED_PARTIES",
+        "CLERK_JWKS_REFETCH_COOLDOWN_SECONDS",
+    }
+
+
+def test_clerk_needs_at_least_one_authorized_party(
+    environment: pytest.MonkeyPatch,
+) -> None:
+    environment.setenv("CLERK_AUTHORIZED_PARTIES", "[]")
+
+    with pytest.raises(SettingsError, match="CLERK_AUTHORIZED_PARTIES"):
+        load_settings()
+
+
 def test_startup_error_output_never_contains_a_secret(
     environment: pytest.MonkeyPatch,
 ) -> None:
