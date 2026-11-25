@@ -29,3 +29,33 @@ Run the type check:
 ```sh
 bun run typecheck
 ```
+
+## API
+
+The API is a FastAPI service in `apps/api`. Install [uv](https://docs.astral.sh/uv/), then run every command below from `apps/api`. uv installs Python 3.14 and the locked dependencies on first use.
+
+Copy the example environment and start the API with auto-reload:
+
+```sh
+cp .env.example .env
+uv run fastapi dev
+```
+
+Open http://localhost:8000/health to check it runs and http://localhost:8000/docs for the Swagger UI.
+
+The API reads its settings from the environment and from `apps/api/.env`. It refuses to start if a variable is missing or invalid, and the error names each bad variable. Secret values never appear in that error.
+
+| Variable | Required | Value |
+| --- | --- | --- |
+| `ENVIRONMENT` | yes | `development`, `test` or `production` |
+| `DATABASE_URL` | yes | A Postgres URL, such as `postgresql://user:password@host:5432/db` |
+| `DATABASE_POOL_SIZE` | no | A positive integer. Defaults to 5. |
+
+Run the checks that CI runs:
+
+```sh
+uv run ruff check
+uv run ruff format --check
+uv run basedpyright
+uv run pytest
+```
