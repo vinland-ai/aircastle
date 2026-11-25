@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
+from aircastle_api.observability import instrument_database
 from aircastle_api.settings import Settings
 
 PING_TIMEOUT_SECONDS = 2
@@ -57,6 +58,7 @@ class Database:
 async def open_database(settings: Settings) -> AsyncGenerator[Database]:
     """Open the connection pool, and dispose of it on exit."""
     engine = create_engine(settings)
+    instrument_database(engine)
     try:
         yield Database(engine)
     finally:
