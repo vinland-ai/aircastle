@@ -28,6 +28,13 @@ async def test_openapi_document_is_served_publicly(client: AsyncClient) -> None:
     assert response.json()["info"]["title"] == "Aircastle API"
 
 
+async def test_operation_ids_are_the_handler_names(client: AsyncClient) -> None:
+    document = (await client.get("/openapi.json")).json()
+
+    assert document["paths"]["/health"]["get"]["operationId"] == "health"
+    assert document["paths"]["/v1/me"]["get"]["operationId"] == "get_me"
+
+
 async def test_me_requires_the_declared_bearer_scheme_and_health_does_not(
     client: AsyncClient,
 ) -> None:

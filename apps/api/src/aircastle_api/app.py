@@ -40,6 +40,7 @@ def create_app(settings: Settings) -> FastAPI:
         title="Aircastle API",
         redoc_url=None,
         responses=_PROBLEM_RESPONSES,
+        generate_unique_id_function=lambda route: route.name,
     )
     add_problem_handlers(app)
     app.add_middleware(
