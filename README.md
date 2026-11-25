@@ -73,3 +73,5 @@ uv run pytest
 ## CI
 
 `.github/workflows/ci.yml` has one job per app. The `web` job installs, type-checks and builds `apps/web`. It runs only when `apps/web`, the root `package.json`, `bun.lock` or the workflow changes.
+
+The `api` job installs `apps/api` with uv and runs ruff, basedpyright and pytest. It runs only when `apps/api` or the workflow changes.
