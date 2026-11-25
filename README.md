@@ -67,14 +67,21 @@ Migrations live in `apps/api/migrations` and run against `DATABASE_URL`. Create 
 
 The API reads its settings from the environment and from `apps/api/.env`. It refuses to start if a variable is missing or invalid, and the error names each bad variable. Secret values never appear in that error.
 
-| Variable | Required | Value |
-| --- | --- | --- |
-| `ENVIRONMENT` | yes | `development`, `test` or `production` |
-| `DATABASE_URL` | yes | A Postgres URL, such as `postgresql://user:password@host:5432/db` |
-| `DATABASE_POOL_SIZE` | no | A positive integer. Defaults to 5. |
-| `LOGFIRE_TOKEN` | no | A Logfire write token. Without it, traces stay local. |
-| `LOG_LEVEL` | no | `debug`, `info`, `warning` or `error`. Defaults to `info`. |
-| `CLIENT_IP_HEADER` | no | The header that holds the client IP set by your proxy. Off by default, so the rate limiter keys anonymous callers by the socket peer. A value that isn't a single IP address is ignored. Railway deployments must set `X-Real-IP`. |
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `ENVIRONMENT` | yes | | `development`, `test` or `production`. `/health` reports it, and Logfire tags traces with it. |
+| `DATABASE_URL` | yes | | The Postgres URL, such as `postgresql://user:password@host:5432/db`. |
+| `DATABASE_POOL_SIZE` | no | `5` | How many connections the pool keeps open. A positive integer. |
+| `LOGFIRE_TOKEN` | no | none | A Logfire write token. Without it, traces print to the console only. |
+| `LOG_LEVEL` | no | `info` | The quietest level the console and Logfire record: `debug`, `info`, `warning` or `error`. |
+| `CLERK_ISSUER` | yes | | The Clerk instance's origin, such as `https://your-instance.clerk.accounts.dev`. Session tokens must name it as `iss`. |
+| `CLERK_JWKS_URL` | yes | | The URL of the Clerk instance's signing keys, usually `<issuer>/.well-known/jwks.json`. |
+| `CLERK_AUTHORIZED_PARTIES` | yes | | A JSON list of the origins that may present session tokens, such as `["http://localhost:3000"]`. A token whose `azp` names another origin is a 401. |
+| `CLERK_JWKS_REFETCH_COOLDOWN_SECONDS` | no | `30` | The fewest seconds between two fetches of the signing keys, when a token names a key the API hasn't seen. `0` refetches for every unknown key. |
+| `CORS_ORIGINS` | yes | | A JSON list of the browser origins that may call the API, such as `["http://localhost:3000"]`. |
+| `RATE_LIMIT` | no | `120/minute` | How many `/v1` requests each caller may make per window, written like `120/minute`. A signed-in user counts on their own, and anyone else counts by client IP. |
+| `RATE_LIMIT_REDIS_URL` | no | none | A Redis URL that holds the rate limit counts, so every instance shares them. Without it, each process counts on its own, in memory. |
+| `CLIENT_IP_HEADER` | no | none | The header your proxy sets to the client IP. Without it, the rate limiter uses the socket peer. A value that isn't a single IP address is ignored. Railway deployments must set `X-Real-IP`. |
 
 Every request is traced with Logfire, and its spans and logs print to the console in every environment. Each response carries an `X-Request-ID` header. The API keeps an incoming `X-Request-ID` of up to 128 letters, digits and `._:-`, and otherwise generates one. Every span and log of the request carries the ID as `request_id`, so you can search Logfire for the ID a user reports. Each console line the request writes starts with the ID in brackets, such as `[req-7f3a] 12:00:00.000 GET /v1/me`, so you can search the platform logs for it too. Log from app code with `logfire.info(...)` and its siblings.
 
