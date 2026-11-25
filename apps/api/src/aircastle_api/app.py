@@ -1,9 +1,12 @@
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from aircastle_api.auth import add_auth
+from aircastle_api.database import Database, open_database
 from aircastle_api.errors import (
     PROBLEM_JSON,
     Problem,
@@ -36,8 +39,15 @@ class _AircastleAPI(FastAPI):
 
 def create_app(settings: Settings) -> FastAPI:
     """Build the API from validated settings. Tests and production share this."""
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncGenerator[dict[str, Database]]:
+        async with open_database(settings) as database:
+            yield {"database": database}
+
     app = _AircastleAPI(
         title="Aircastle API",
+        lifespan=lifespan,
         redoc_url=None,
         responses=_PROBLEM_RESPONSES,
         generate_unique_id_function=lambda route: route.name,
