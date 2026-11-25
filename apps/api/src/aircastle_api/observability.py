@@ -5,7 +5,7 @@ from uuid import uuid7
 
 import logfire
 from fastapi import FastAPI
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.instrumentation.urllib import URLLibInstrumentor
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import Message, Receive, Scope, Send
@@ -43,7 +43,7 @@ class RequestIdApp(FastAPI):
 
 
 def observe(app: FastAPI, settings: Settings) -> None:
-    """Trace each request and outgoing httpx call, and log them to the console.
+    """Trace each request and its outgoing HTTP calls, and log them to the console.
 
     Traces reach Logfire only when a token is set. Incoming trace context is
     ignored, so callers can't join or tag our traces.
@@ -59,7 +59,7 @@ def observe(app: FastAPI, settings: Settings) -> None:
         distributed_tracing=False,
     )
     logfire.instrument_fastapi(app)
-    HTTPXClientInstrumentor().instrument()
+    URLLibInstrumentor().instrument()
 
 
 def instrument_database(engine: AsyncEngine) -> None:

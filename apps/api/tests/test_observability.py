@@ -2,6 +2,7 @@ from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Protocol, runtime_checkable
 
+import jwt
 import logfire
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -11,6 +12,8 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
+from opentelemetry.trace import SpanKind
+from pytest_httpserver import HTTPServer
 
 from aircastle_api.app import create_app
 from aircastle_api.settings import load_settings
@@ -51,14 +54,18 @@ async def client(environment: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
         yield client
 
 
-@pytest.fixture
-def exported(client: AsyncClient) -> InMemorySpanExporter:
+def capture_spans() -> InMemorySpanExporter:
     """Every span and log the app exports, as a Logfire backend would receive them."""
     provider = trace.get_tracer_provider()
     assert isinstance(provider, TracerProviderWithProcessors)
     exporter = InMemorySpanExporter()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
     return exporter
+
+
+@pytest.fixture
+def exported(client: AsyncClient) -> InMemorySpanExporter:
+    return capture_spans()
 
 
 def attribute(spans: tuple[ReadableSpan, ...], key: str) -> list[str]:
@@ -122,6 +129,29 @@ async def test_the_logs_of_an_unhandled_error_carry_the_request_id(
     spans = exported.get_finished_spans()
     assert "exception" in {event.name for span in spans for event in span.events}
     assert set(attribute(spans, "request_id")) == {"req-500"}
+
+
+async def test_outgoing_http_calls_of_a_request_carry_its_request_id(
+    environment: pytest.MonkeyPatch, httpserver: HTTPServer
+) -> None:
+    httpserver.expect_request("/jwks").respond_with_json({"keys": []})
+    environment.setenv("CLERK_JWKS_URL", httpserver.url_for("/jwks"))
+    token = jwt.encode(
+        {"sub": "user_1"}, "k" * 32, algorithm="HS256", headers={"kid": "ins_1"}
+    )
+
+    async with app_client() as client:
+        exported = capture_spans()
+        await client.get(
+            "/v1/me",
+            headers={"X-Request-ID": "req-out", "Authorization": f"Bearer {token}"},
+        )
+
+    spans = exported.get_finished_spans()
+    outgoing = tuple(span for span in spans if span.kind is SpanKind.CLIENT)
+    assert len(httpserver.log) == 1
+    assert len(outgoing) == 1
+    assert set(attribute(spans, "request_id")) == {"req-out"}
 
 
 async def test_requests_are_logged_to_the_console_in_production(
