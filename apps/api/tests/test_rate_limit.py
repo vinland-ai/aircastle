@@ -87,11 +87,12 @@ async def test_a_caller_cannot_dodge_the_limit_with_an_untrusted_ip_header(
     assert response.status_code == 429
 
 
-async def test_health_is_never_limited(client: AsyncClient) -> None:
+@pytest.mark.parametrize("path", ["/health", "/ready"])
+async def test_health_checks_are_never_limited(client: AsyncClient, path: str) -> None:
     for _ in range(3):
         await client.get("/v1/me")
 
-    responses = [await client.get("/health") for _ in range(5)]
+    responses = [await client.get(path) for _ in range(5)]
 
     assert [response.status_code for response in responses] == [200] * 5
 
