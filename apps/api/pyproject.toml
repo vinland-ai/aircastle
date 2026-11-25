@@ -9,6 +9,7 @@ dependencies = [
     "fastapi>=0.165.0",
     "fastapi-cli>=0.0.34",
     "limits[async-redis]>=5.8.0",
+    "logfire[fastapi,sqlalchemy,urllib]>=6.0.1",
     "pydantic-settings>=2.16.3",
     "pyjwt[crypto]>=2.15.1",
     "sqlalchemy[asyncio]>=2.1.9",
