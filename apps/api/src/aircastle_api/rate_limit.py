@@ -4,6 +4,7 @@ import math
 import time
 from http import HTTPStatus
 from ipaddress import ip_address
+from typing import Literal
 
 from fastapi import Request
 from limits.aio.storage import MemoryStorage, RedisStorage, Storage
@@ -13,6 +14,9 @@ from aircastle_api.auth import Authentication, User
 from aircastle_api.errors import DomainError
 from aircastle_api.settings import Settings
 from aircastle_api.state import app_state
+
+type Caller = tuple[Literal["user", "ip"], str]
+"""Who a request counts against: a signed-in user's ID, or else a client IP."""
 
 
 class RateLimitedError(DomainError):
@@ -38,10 +42,10 @@ class RateLimiter:
 
     async def hit(self, request: Request, user: User | None) -> None:
         """Count one request, or raise `RateLimitedError` if the caller is over."""
-        key = f"user:{user.id}" if user else f"ip:{self._client_ip(request)}"
-        if await self._windows.hit(self._limit, key):
+        caller: Caller = ("user", user.id) if user else ("ip", self._client_ip(request))
+        if await self._windows.hit(self._limit, *caller):
             return
-        window = await self._windows.get_window_stats(self._limit, key)
+        window = await self._windows.get_window_stats(self._limit, *caller)
         retry_after = max(1, math.ceil(window.reset_time - time.time()))
         raise RateLimitedError(
             f"Too many requests. Retry in {retry_after} seconds.",
