@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from aircastle_api.database import Database, open_database
+from aircastle_api.errors import add_problem_handlers
 from aircastle_api.health import health_router
 from aircastle_api.settings import Settings
 
@@ -17,5 +18,6 @@ def create_app(settings: Settings) -> FastAPI:
             yield {"database": database}
 
     app = FastAPI(title="Aircastle API", lifespan=lifespan)
+    add_problem_handlers(app)
     app.include_router(health_router(settings))
     return app
