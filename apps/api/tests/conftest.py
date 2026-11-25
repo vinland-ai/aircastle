@@ -1,7 +1,12 @@
 import asyncio
+import os
 import socket
-from collections.abc import AsyncGenerator, Generator
+import subprocess
+import sys
+from collections.abc import AsyncGenerator, Callable, Generator
 from contextlib import asynccontextmanager
+from functools import partial
+from pathlib import Path
 
 import pytest
 from asgi_lifespan import LifespanManager
@@ -15,6 +20,7 @@ from aircastle_api.app import create_app
 from aircastle_api.database import create_engine, database_session
 from aircastle_api.settings import load_settings
 
+API_ROOT = Path(__file__).parents[1]
 POSTGRES_IMAGE = "postgres:18-alpine"
 VALID_ENVIRONMENT = {
     "ENVIRONMENT": "test",
@@ -22,11 +28,31 @@ VALID_ENVIRONMENT = {
 }
 
 
+def alembic(database_url: str, *arguments: str) -> str:
+    """Run the Alembic CLI from the API root against the given database."""
+    return subprocess.run(
+        [sys.executable, "-m", "alembic", *arguments],
+        cwd=API_ROOT,
+        env={**os.environ, **VALID_ENVIRONMENT, "DATABASE_URL": database_url},
+        check=True,
+        stdout=subprocess.PIPE,
+        text=True,
+    ).stdout
+
+
 @pytest.fixture(scope="session")
 def database_url() -> Generator[str]:
-    """Start a disposable Postgres for the test session."""
+    """Start a disposable Postgres for the test session, migrated to head."""
     with PostgresContainer(POSTGRES_IMAGE, driver=None) as postgres:
-        yield postgres.get_connection_url()
+        url = postgres.get_connection_url()
+        alembic(url, "upgrade", "head")
+        yield url
+
+
+@pytest.fixture
+def migrate(database_url: str) -> Callable[..., str]:
+    """Run the Alembic CLI against the test database."""
+    return partial(alembic, database_url)
 
 
 @pytest.fixture
