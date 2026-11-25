@@ -11,7 +11,7 @@ from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.instrumentation.urllib import URLLibInstrumentor
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.datastructures import Headers, MutableHeaders
-from starlette.types import Message, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from aircastle_api.settings import Settings
 
@@ -50,18 +50,21 @@ class _RequestIdConsole(StringIO):
         return len(s)
 
 
-class RequestIdApp(FastAPI):
-    """A FastAPI app that tags each HTTP request with an ID before any other layer.
+class RequestIds:
+    """An ASGI layer that tags each HTTP request with an ID.
 
-    The tag sits outside Starlette's error middleware, so even the response to an
-    unhandled exception carries the ID in `X-Request-ID`. Every span and log the
-    request produces carries it as the `request_id` attribute.
+    The response carries the ID in `X-Request-ID`, and every span and log of the
+    request carries it as the `request_id` attribute.
     """
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Tag the requests that `app` serves."""
+        self._app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Serve the request with its ID attached to the response and its logs."""
         if scope["type"] != "http":
-            await super().__call__(scope, receive, send)
+            await self._app(scope, receive, send)
             return
 
         incoming = Headers(scope=scope).get(REQUEST_ID_HEADER, "")
@@ -73,7 +76,7 @@ class RequestIdApp(FastAPI):
             await send(message)
 
         with logfire.set_baggage(request_id=request_id):
-            await super().__call__(scope, receive, send_with_id)
+            await self._app(scope, receive, send_with_id)
 
 
 def observe(app: FastAPI, settings: Settings) -> None:

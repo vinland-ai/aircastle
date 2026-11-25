@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from http import HTTPStatus
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -51,6 +51,13 @@ class DomainError(Exception):
         super().__init__(detail)
         self.detail = detail
         self.headers = headers
+
+
+PROBLEM_RESPONSES: dict[int | str, dict[str, Any]] = {
+    "422": {"model": ValidationProblem, "description": "Validation problem"},
+    "default": {"model": Problem, "description": "Problem"},
+}
+"""The error responses every operation declares, for FastAPI's `responses`."""
 
 
 def problem_response(
@@ -116,3 +123,27 @@ def add_problem_handlers(app: FastAPI) -> None:
     """Answer every error the app raises with a problem response."""
     for error in (RequestValidationError, DomainError, HTTPException, Exception):
         app.add_exception_handler(error, _problem_for)
+
+
+def document_problems(app: FastAPI) -> None:
+    """Declare every error response in the app's OpenAPI document as problem+json.
+
+    An operation with no parameters or body never fails validation, so its 422
+    is left out.
+    """
+    generate = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        if app.openapi_schema is None:
+            for path in generate()["paths"].values():
+                for operation in path.values():
+                    responses = operation["responses"]
+                    if not {"parameters", "requestBody"} & operation.keys():
+                        del responses["422"]
+                    for status, response in responses.items():
+                        if status == "default" or int(status) >= 400:
+                            content = response["content"]
+                            content[PROBLEM_JSON] = content.pop("application/json")
+        return generate()
+
+    app.openapi = openapi
