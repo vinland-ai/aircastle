@@ -10,7 +10,7 @@ from aircastle_api.v1 import v1_router
 
 def create_app(settings: Settings) -> FastAPI:
     """Build the API from validated settings. Tests and production share this."""
-    app = FastAPI(title="Aircastle API")
+    app = FastAPI(title="Aircastle API", redoc_url=None)
     add_problem_handlers(app)
     app.add_middleware(
         CORSMiddleware,
