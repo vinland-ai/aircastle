@@ -1,5 +1,5 @@
 {
-  "name": "aircastle",
+  "name": "web",
   "version": "0.0.0",
   "private": true,
   "license": "UNLICENSED",
@@ -33,14 +33,5 @@
     "babel-plugin-react-compiler": "1.0.0",
     "tailwindcss": "4.3.3",
     "typescript": "^5.9.3"
-  },
-  "packageManager": "bun@1.4.5",
-  "ignoreScripts": [
-    "sharp",
-    "unrs-resolver"
-  ],
-  "trustedDependencies": [
-    "sharp",
-    "unrs-resolver"
-  ]
+  }
 }
