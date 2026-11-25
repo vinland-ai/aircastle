@@ -1,6 +1,16 @@
 {
   "skills": [
     {
+      "name": "react-doctor",
+      "repository": "https://github.com/millionco/react-doctor",
+      "path": "skills/react-doctor",
+      "commit": "b6ba66ef427bf81995555e380eeba679f8b5d305",
+      "localEdits": [],
+      "addedLicenseFiles": [
+        "LICENSE"
+      ]
+    },
+    {
       "name": "shadcn",
       "repository": "https://github.com/shadcn-ui/ui",
       "path": "skills/shadcn",
