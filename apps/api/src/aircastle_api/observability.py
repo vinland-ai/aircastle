@@ -104,9 +104,7 @@ def configure_observability(app: FastAPI, settings: Settings) -> None:
 def instrument_database(engine: AsyncEngine) -> None:
     """Trace each query `engine` runs, with its timing, inside the current request.
 
-    The instrumentation traces one engine per process, so this moves it from any
-    earlier engine to `engine`. It declares support only below SQLAlchemy 2.1, yet
-    works on 2.1, as the tests show against Postgres, so its version check is off.
+    Only one engine per process is traced, so any earlier engine stops being traced.
     """
     instrumentor = SQLAlchemyInstrumentor()
     if instrumentor.is_instrumented_by_opentelemetry:
