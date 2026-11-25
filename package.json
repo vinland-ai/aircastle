@@ -3,95 +3,44 @@
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-  "type": "module",
   "scripts": {
-    "prepare": "vp config --no-agent",
-    "dev": "vp run --filter './apps/*' --parallel dev",
-    "dev-web": "vp -C apps/web dev",
-    "dev-api": "vp -C apps/api run dev",
-    "dev-db": "vp run db:up",
-    "knip": "knip",
-    "build": "vp run --filter '@aircastle/*' build",
-    "build-landing": "vp -C apps/web run build:landing",
-    "typecheck": "bun run check:policy && tsc --noEmit && vp run --filter '@aircastle/*' --parallel typecheck",
-    "lint": "vp lint --deny-warnings",
-    "lint:workflows": "actionlint -color",
-    "lint-web": "vp lint apps/web",
-    "lint-api": "vp lint apps/api",
-    "lint-schema": "vp lint packages/schema",
-    "test": "vp run build && vp run test:prepared",
-    "test-web": "vp -C apps/web run test",
-    "test-web:record": "WEB_E2E_VIDEO=1 vp run test-web:e2e",
-    "test-api": "vp -C apps/api run test",
-    "test-schema": "vp -C packages/schema run test",
-    "check:policy": "bun scripts/check-code-policy.ts",
-    "test:harness": "vp test tests/harness && vp -C packages/schema test tests/harness",
-    "test:schema": "vp -C packages/schema run test:schema",
-    "test:typecheck": "vp -C packages/schema run test:typecheck",
-    "test:types": "bun run test:typecheck",
-    "test:inference": "vp -C packages/schema run test:inference",
-    "check": "vp run build && vp run typecheck && vp run lint && vp run lint:workflows && vp run knip && vp run test:prepared && vp run test-web:e2e && vp run test:db && vp run test:coverage",
-    "test:coverage": "vp -C packages/schema run test:coverage",
-    "test-mutation": "vp -C packages/schema run test:mutation",
-    "test:unicode": "vp -C packages/schema run test:unicode",
-    "test:declarations": "vp -C packages/schema run test:declarations",
-    "test:declarations:inference": "vp -C packages/schema run test:declarations:inference",
-    "test:mutation:classify": "vp -C packages/schema run test:mutation:classify",
-    "hono-api": "vp -C apps/api run hono",
-    "db:up": "docker compose --project-directory . -f infra/docker/compose.yaml up -d --wait --wait-timeout 90 postgres",
-    "db:down": "docker compose --project-directory . -f infra/docker/compose.yaml down",
-    "db:logs": "docker compose --project-directory . -f infra/docker/compose.yaml logs --follow postgres",
-    "db:reset": "docker compose --project-directory . -f infra/docker/compose.yaml down --volumes",
-    "db:test": "bun infra/docker/with-postgres.ts",
-    "test:db": "vp test --config infra/docker/vite.db.config.ts",
-    "test:content": "vp test --config vite.content.config.ts",
-    "test:content:db": "vp run db:test -- vp run test:content --project database",
-    "dev:setup": "bun --conditions=development scripts/dev-setup.ts",
-    "test:all": "vp run test:fixtures && vp run test:units",
-    "test:fixtures": "bun run test:typecheck && bun run test:inference",
-    "test:units": "vp run --filter '@aircastle/*' --parallel test && vp test",
-    "test:content:mutation": "vp -C packages/contracts run test:mutation",
-    "test:prepared": "vp run db:test -- vp run test:all",
-    "test-auth:web": "vp run db:test -- vp -C apps/web run test:e2e 'e2e/auth[^/]*\\.spec\\.ts'",
-    "test-auth:record": "WEB_E2E_VIDEO=1 vp run test-auth:web",
-    "test-auth:image": "vp test --config infra/docker/vite.image.config.ts",
-    "test-web:e2e": "vp run db:test -- vp -C apps/web run test:e2e",
-    "test-web:coverage": "vp -C apps/web run test:coverage"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.9.0",
+    "@fontsource-variable/outfit": "^5.3.0",
+    "@icons-pack/react-simple-icons": "13.15.1",
+    "@primer/octicons-react": "^19.42.0",
+    "boring-avatars": "^2.0.4",
+    "class-variance-authority": "^0.7.1",
+    "cmdk": "^1.1.1",
+    "cn": "^0.5.0",
+    "lucide-react": "^1.61.0",
+    "next": "16.4.6",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "shadcn": "4.22.1",
+    "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
-    "@aircastle/adapter-postgres": "workspace:*",
-    "@aircastle/api": "workspace:*",
-    "@aircastle/client": "workspace:*",
-    "@aircastle/contracts": "workspace:*",
-    "@aircastle/core": "workspace:*",
-    "@aircastle/schema": "workspace:*",
-    "@babel/parser": "7.28.5",
-    "@types/bun": "catalog:",
-    "knip": "6.42.1",
-    "typescript": "catalog:",
-    "vite": "catalog:",
-    "vite-plus": "catalog:",
-    "yaml": "2.9.1"
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "^24",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "babel-plugin-react-compiler": "1.0.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5.9.3"
   },
-  "overrides": {
-    "@types/node": "24.19.2",
-    "vite": "catalog:"
-  },
-  "engines": {
-    "node": "^22.22.1 || ^24.11.0 || >=26.0.0"
-  },
-  "packageManager": "bun@1.4.4",
-  "catalog": {
-    "@types/bun": "1.4.4",
-    "typescript": "7.0.2",
-    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
-    "vite-plus": "1.4.0"
-  },
-  "patchedDependencies": {
-    "@ark/util@0.56.8": "patches/@ark%2Futil@0.56.8.patch"
-  }
+  "packageManager": "bun@1.4.5",
+  "ignoreScripts": [
+    "sharp",
+    "unrs-resolver"
+  ],
+  "trustedDependencies": [
+    "sharp",
+    "unrs-resolver"
+  ]
 }

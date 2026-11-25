@@ -1,12 +1,9 @@
-# Aircastle agent instructions
+<!-- BEGIN:nextjs-agent-rules -->
 
-Aircastle is a headless CMS with code-defined collections.
+## This is NOT the Next.js you know
 
-- Follow [ARCHITECTURE.md](ARCHITECTURE.md). Update it in the same change when modules move. These updates are authorized; keep the map at module level.
-- Start local services only through committed configuration and repository commands. Do not create ad hoc containers.
-- Use `vp run db:test -- <command>` for disposable Postgres. Never reset another worktree's database.
-- Define observable behavior and failure cases before you write code.
-- Write the test first and confirm it fails for the intended reason.
-- Test through the module's public interface. Each test must exercise Aircastle code, not only a dependency.
-- Never weaken assertions or skip failing checks.
-- Run only the smallest relevant checks: the test files, cases and package scripts the change affects.
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
