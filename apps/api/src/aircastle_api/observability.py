@@ -1,6 +1,8 @@
 """Logfire tracing, console logs and request IDs."""
 
 import re
+import sys
+from io import StringIO
 from uuid import uuid7
 
 import logfire
@@ -15,6 +17,37 @@ from aircastle_api.settings import Settings
 
 REQUEST_ID_HEADER = "X-Request-ID"
 SAFE_REQUEST_ID = re.compile(r"[A-Za-z0-9._:-]{1,128}")
+_LINE_BREAK = re.compile(r"\n(?=.)")
+
+
+class _RequestIdConsole(StringIO):
+    """Standard output that starts each line with the request ID of its writer.
+
+    The ID comes from the current request's baggage, so lines written outside
+    a request have no prefix. Nothing is kept in the string buffer.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._at_line_start = True
+
+    def isatty(self) -> bool:
+        return sys.stdout.isatty()
+
+    def flush(self) -> None:
+        sys.stdout.flush()
+
+    def write(self, s: str, /) -> int:
+        text = s
+        if s and (request_id := logfire.get_baggage().get("request_id")):
+            prefix = f"[{request_id}] "
+            text = _LINE_BREAK.sub(f"\n{prefix}", s)
+            if self._at_line_start:
+                text = f"{prefix}{text}"
+        if s:
+            self._at_line_start = s.endswith("\n")
+        sys.stdout.write(text)
+        return len(s)
 
 
 class RequestIdApp(FastAPI):
@@ -55,7 +88,9 @@ def observe(app: FastAPI, settings: Settings) -> None:
         environment=settings.environment,
         token=token.get_secret_value() if token else None,
         send_to_logfire="if-token-present",
-        console=logfire.ConsoleOptions(min_log_level=settings.log_level),
+        console=logfire.ConsoleOptions(
+            min_log_level=settings.log_level, output=_RequestIdConsole()
+        ),
         min_level=settings.log_level,
         distributed_tracing=False,
     )

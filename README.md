@@ -76,7 +76,7 @@ The API reads its settings from the environment and from `apps/api/.env`. It ref
 | `LOG_LEVEL` | no | `debug`, `info`, `warning` or `error`. Defaults to `info`. |
 | `CLIENT_IP_HEADER` | no | The header that holds the client IP set by your proxy. Off by default, so the rate limiter keys anonymous callers by the socket peer. A value that isn't a single IP address is ignored. Railway deployments must set `X-Real-IP`. |
 
-Every request is traced with Logfire, and its spans and logs print to the console in every environment. Each response carries an `X-Request-ID` header. The API keeps an incoming `X-Request-ID` of up to 128 letters, digits and `._:-`, and otherwise generates one. Every span and log of the request carries the ID as `request_id`, so you can search Logfire for the ID a user reports. Log from app code with `logfire.info(...)` and its siblings.
+Every request is traced with Logfire, and its spans and logs print to the console in every environment. Each response carries an `X-Request-ID` header. The API keeps an incoming `X-Request-ID` of up to 128 letters, digits and `._:-`, and otherwise generates one. Every span and log of the request carries the ID as `request_id`, so you can search Logfire for the ID a user reports. Each console line the request writes starts with the ID in brackets, such as `[req-7f3a] 12:00:00.000 GET /v1/me`, so you can search the platform logs for it too. Log from app code with `logfire.info(...)` and its siblings.
 
 Run the checks that CI runs:
 
