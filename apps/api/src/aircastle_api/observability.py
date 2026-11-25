@@ -5,6 +5,7 @@ from uuid import uuid7
 
 import logfire
 from fastapi import FastAPI
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.instrumentation.urllib import URLLibInstrumentor
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.datastructures import Headers, MutableHeaders
@@ -63,5 +64,13 @@ def observe(app: FastAPI, settings: Settings) -> None:
 
 
 def instrument_database(engine: AsyncEngine) -> None:
-    """Trace each query `engine` runs, with its timing, inside the current request."""
-    logfire.instrument_sqlalchemy(engine=engine)
+    """Trace each query `engine` runs, with its timing, inside the current request.
+
+    The instrumentation traces one engine per process, so this moves it from any
+    earlier engine to `engine`. It declares support only below SQLAlchemy 2.1, yet
+    works on 2.1, as the tests show against Postgres, so its version check is off.
+    """
+    instrumentor = SQLAlchemyInstrumentor()
+    if instrumentor.is_instrumented_by_opentelemetry:
+        instrumentor.uninstrument()
+    logfire.instrument_sqlalchemy(engine=engine, skip_dep_check=True)

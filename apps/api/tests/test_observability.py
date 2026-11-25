@@ -5,6 +5,7 @@ from typing import Protocol, runtime_checkable
 import jwt
 import logfire
 import pytest
+from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
@@ -41,10 +42,13 @@ async def app_client() -> AsyncGenerator[AsyncClient]:
     app = create_app(load_settings())
     app.add_api_route("/test/widgets/buy", buy_widget, methods=["POST"])
     app.add_api_route("/test/widgets/break", break_widget, methods=["POST"])
-    async with AsyncClient(
-        transport=ASGITransport(app=app, raise_app_exceptions=False),
-        base_url="http://test",
-    ) as client:
+    async with (
+        LifespanManager(app) as manager,
+        AsyncClient(
+            transport=ASGITransport(app=manager.app, raise_app_exceptions=False),
+            base_url="http://test",
+        ) as client,
+    ):
         yield client
 
 
@@ -152,6 +156,21 @@ async def test_outgoing_http_calls_of_a_request_carry_its_request_id(
     assert len(httpserver.log) == 1
     assert len(outgoing) == 1
     assert set(attribute(spans, "request_id")) == {"req-out"}
+
+
+async def test_sql_queries_of_a_request_carry_its_request_id(
+    environment: pytest.MonkeyPatch, database_url: str
+) -> None:
+    environment.setenv("DATABASE_URL", database_url)
+
+    async with app_client() as client:
+        exported = capture_spans()
+        response = await client.get("/ready", headers={"X-Request-ID": "req-sql"})
+
+    spans = exported.get_finished_spans()
+    assert response.status_code == 200
+    assert "select 1" in attribute(spans, "db.statement")
+    assert set(attribute(spans, "request_id")) == {"req-sql"}
 
 
 async def test_requests_are_logged_to_the_console_in_production(
