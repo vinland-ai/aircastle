@@ -58,9 +58,10 @@ class _AircastleAPI(RequestIdApp):
                     responses = operation["responses"]
                     if not {"parameters", "requestBody"} & operation.keys():
                         del responses["422"]
-                    for status in _PROBLEM_RESPONSES.keys() & responses.keys():
-                        content = responses[status]["content"]
-                        content[PROBLEM_JSON] = content.pop("application/json")
+                    for status, response in responses.items():
+                        if status == "default" or int(status) >= 400:
+                            content = response["content"]
+                            content[PROBLEM_JSON] = content.pop("application/json")
         return super().openapi()
 
 

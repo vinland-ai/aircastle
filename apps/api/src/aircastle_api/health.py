@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from aircastle_api.database import Database, current_database
-from aircastle_api.errors import problem_response
+from aircastle_api.errors import Problem, problem_response
 from aircastle_api.settings import Environment, Settings
 
 
@@ -45,6 +45,8 @@ def health_router(settings: Settings) -> APIRouter:
         ready,
         methods=["GET"],
         response_model=Readiness,
-        responses={503: {"description": "Postgres is not answering."}},
+        responses={
+            503: {"model": Problem, "description": "Postgres is not answering."}
+        },
     )
     return router

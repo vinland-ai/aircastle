@@ -67,6 +67,17 @@ async def test_every_operation_declares_problem_json_for_its_errors(
     }
 
 
+async def test_the_not_ready_response_is_declared_as_a_problem(
+    client: AsyncClient,
+) -> None:
+    document = (await client.get("/openapi.json")).json()
+
+    not_ready = document["paths"]["/ready"]["get"]["responses"]["503"]
+    assert not_ready["content"] == {
+        PROBLEM_JSON: {"schema": {"$ref": "#/components/schemas/Problem"}}
+    }
+
+
 async def test_only_operations_that_take_input_declare_a_validation_problem(
     environment: pytest.MonkeyPatch,
 ) -> None:
