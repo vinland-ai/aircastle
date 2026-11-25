@@ -4,7 +4,8 @@
 - `apps/api` is the FastAPI app. It owns its `pyproject.toml`, `uv.lock` and config. See the README for its commands.
 - The root `package.json` only declares the Bun workspace and its install settings. Add no app config at the root.
 - `bun.lock` lives at the root. Run `bun install` from the root or from any app.
-- `.github/workflows/ci.yml` has one job per app, each gated by a path filter in the `changes` job. A new app gets its own filter and job.
+- `.github/workflows/ci.yml` has one job per app, each gated by a path filter in the `changes` job. A new app gets its own filter and job. The `contract` job runs when either app changes.
+- `apps/api/openapi.json` and `apps/web/src/lib/api/generated` are generated and committed. Never edit them by hand. After an API route or model change, run `uv run scripts/export_openapi.py` in `apps/api`, then `bun run generate:api` in `apps/web`, and commit both.
 
 ## Commands
 
@@ -12,8 +13,10 @@ Run these from `apps/web`:
 
 - `bun run dev` starts the dev server on port 3000.
 - `bun run typecheck` runs `next typegen` and `tsc`.
-- `bun run build` builds the app. CI runs `typecheck` and `build`.
+- `bun run test` runs the `*.test.ts` files with `bun test`.
+- `bun run build` builds the app. CI runs `typecheck`, `test` and `build`.
 - `bun run start` serves the last build.
+- `bun run generate:api` regenerates the API client from `apps/api/openapi.json`.
 
 ## Next.js
 
