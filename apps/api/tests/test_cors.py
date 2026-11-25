@@ -1,9 +1,6 @@
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
-
 import pytest
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
+from serving import serve
 
 from aircastle_api.app import create_app
 from aircastle_api.settings import load_settings
@@ -11,15 +8,6 @@ from aircastle_api.settings import load_settings
 WEB_ORIGIN = "http://localhost:3000"
 OTHER_ORIGIN = "https://evil.example"
 PROBLEM_JSON = "application/problem+json"
-
-
-@asynccontextmanager
-async def client_for(app: FastAPI) -> AsyncGenerator[AsyncClient]:
-    async with AsyncClient(
-        transport=ASGITransport(app=app, raise_app_exceptions=False),
-        base_url="http://test",
-    ) as client:
-        yield client
 
 
 def preflight(origin: str) -> dict[str, str]:
@@ -80,7 +68,7 @@ async def test_allowed_origins_come_from_settings(
         "CORS_ORIGINS", '["https://app.aircastle.test/", "https://aircastle.test"]'
     )
 
-    async with client_for(create_app(load_settings())) as client:
+    async with serve(create_app(load_settings())) as client:
         responses = {
             origin: await client.get("/health", headers={"Origin": origin})
             for origin in ("https://app.aircastle.test", "https://aircastle.test")
@@ -102,7 +90,7 @@ async def test_unhandled_error_from_the_web_origin_is_a_readable_500_problem(
     app = create_app(load_settings())
     app.add_api_route("/test/crash", crash)
 
-    async with client_for(app) as client:
+    async with serve(app) as client:
         response = await client.get("/test/crash", headers={"Origin": WEB_ORIGIN})
 
     assert response.status_code == 500

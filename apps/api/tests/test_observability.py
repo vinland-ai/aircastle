@@ -1,12 +1,13 @@
-from collections.abc import AsyncGenerator, AsyncIterator
+import asyncio
+import re
+import sys
+from collections.abc import AsyncGenerator, AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from typing import Protocol, runtime_checkable
 
 import jwt
-import logfire
 import pytest
-from asgi_lifespan import LifespanManager
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -15,20 +16,11 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 )
 from opentelemetry.trace import SpanKind
 from pytest_httpserver import HTTPServer
+from serving import serve
+from widgets import WIDGETS_PER_BATCH, widget_routes
 
 from aircastle_api.app import create_app
 from aircastle_api.settings import load_settings
-
-
-async def buy_widget() -> dict[str, str]:
-    logfire.info("Bought a {widget}", widget="sprocket")
-    return {"widget": "sprocket"}
-
-
-async def break_widget() -> None:
-    logfire.warning("The {widget} is about to break", widget="sprocket")
-    message = "the widget broke"
-    raise RuntimeError(message)
 
 
 @runtime_checkable
@@ -40,15 +32,8 @@ class TracerProviderWithProcessors(Protocol):
 async def app_client() -> AsyncGenerator[AsyncClient]:
     """The real app built from the current environment, plus test-only routes."""
     app = create_app(load_settings())
-    app.add_api_route("/test/widgets/buy", buy_widget, methods=["POST"])
-    app.add_api_route("/test/widgets/break", break_widget, methods=["POST"])
-    async with (
-        LifespanManager(app) as manager,
-        AsyncClient(
-            transport=ASGITransport(app=manager.app, raise_app_exceptions=False),
-            base_url="http://test",
-        ) as client,
-    ):
+    app.include_router(widget_routes)
+    async with serve(app) as client:
         yield client
 
 
@@ -56,6 +41,15 @@ async def app_client() -> AsyncGenerator[AsyncClient]:
 async def client(environment: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
     async with app_client() as client:
         yield client
+
+
+@pytest.fixture
+def eager_thread_switching() -> Iterator[None]:
+    """Switch threads every microsecond, so writes from racing threads interleave."""
+    interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    yield
+    sys.setswitchinterval(interval)
 
 
 def capture_spans() -> InMemorySpanExporter:
@@ -184,6 +178,47 @@ async def test_requests_are_logged_to_the_console_in_production(
     console = capsys.readouterr().out
     assert "POST /test/widgets/buy" in console
     assert "Bought a sprocket" in console
+
+
+async def test_every_console_line_of_a_request_carries_its_request_id(
+    environment: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    async with app_client() as client:
+        await client.post("/test/widgets/buy", headers={"X-Request-ID": "req-console"})
+
+    lines = capsys.readouterr().out.splitlines()
+    request_lines = [line for line in lines if "/test/widgets/buy" in line]
+    log_lines = [line for line in lines if "Bought a sprocket" in line]
+    assert request_lines
+    assert log_lines
+    for line in request_lines + log_lines:
+        assert "req-console" in line
+
+
+async def test_concurrent_requests_each_start_their_console_lines_with_their_own_id(
+    environment: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    eager_thread_switching: None,
+) -> None:
+    async with app_client() as client:
+        await asyncio.gather(
+            *(
+                client.post(
+                    "/test/widgets/count",
+                    params={"batch": batch},
+                    headers={"X-Request-ID": f"req-{batch}"},
+                )
+                for batch in ("a", "b")
+            )
+        )
+
+    lines = capsys.readouterr().out.splitlines()
+    counted = [line for line in lines if "Counted widget" in line]
+    assert len(counted) == 2 * WIDGETS_PER_BATCH
+    for line in counted:
+        assert re.fullmatch(
+            r"\[req-(?P<batch>[ab])\] \S+ +Counted widget \d+ of batch (?P=batch)", line
+        ), line
 
 
 async def test_the_log_level_hides_quieter_logs(
