@@ -8,7 +8,7 @@ import { ThemeContext, type Theme } from './context'
 const listeners = new Set<() => void>()
 let unsavedTheme: Theme = 'dark'
 
-function readTheme(): Theme {
+export function readTheme(): Theme {
   try {
     return localStorage.getItem(themeStorageKey) === 'light' ? 'light' : 'dark'
   } catch (error) {
@@ -17,7 +17,7 @@ function readTheme(): Theme {
   }
 }
 
-function applyTheme(theme: Theme) {
+export function applyTheme(theme: Theme) {
   document.documentElement.classList.remove('light', 'dark')
   document.documentElement.classList.add(theme)
   document.documentElement.style.colorScheme = theme

@@ -22,7 +22,7 @@ bun run build
 bun run start
 ```
 
-`next build` prerenders the landing page as static HTML. Dashboard pages are partially prerendered and stream the parts that depend on the URL.
+`next build` prerenders the landing page and the demo dashboard (`/dash/workspaces/demo/projects/demo/...`) as static HTML. Other workspace and project ids show a skeleton, then render in the browser.
 
 Run the type check:
 

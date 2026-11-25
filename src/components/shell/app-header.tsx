@@ -5,7 +5,7 @@ import { CustomSidebarTrigger } from './custom-sidebar-trigger'
 import { NavUser } from './nav-user'
 import { demoUser } from './data'
 import { ThemeSwitcher } from './theme-switcher'
-import { BookOpenIcon, CrownIcon, PlugIcon, PlusIcon } from 'lucide-react'
+import { CrownIcon, PlugIcon, PlusIcon } from 'lucide-react'
 import { MarkGithubIcon } from '@primer/octicons-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PageSearch, projectHref, useProjectParams } from '@/features/navigation'
@@ -48,25 +48,6 @@ export function AppHeader() {
       </div>
       <div className="ms-auto flex items-center gap-2.5 pr-4 sm:gap-4 md:pr-5">
         <PageSearch />
-        <Tooltip>
-          <TooltipTrigger
-            role="link"
-            render={
-              <Button
-                className="hidden sm:inline-flex"
-                aria-label="Docs"
-                size="icon-sm"
-                variant="plain"
-                nativeButton={false}
-                role="link"
-                render={<a href="/api/docs" target="_blank" rel="noopener noreferrer" />}
-              />
-            }
-          >
-            <BookOpenIcon aria-hidden="true" />
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Documentation</TooltipContent>
-        </Tooltip>
         <ThemeSwitcher />
         <Tooltip>
           <TooltipTrigger
