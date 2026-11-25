@@ -69,6 +69,10 @@ The API reads its settings from the environment and from `apps/api/.env`. It ref
 | `ENVIRONMENT` | yes | `development`, `test` or `production` |
 | `DATABASE_URL` | yes | A Postgres URL, such as `postgresql://user:password@host:5432/db` |
 | `DATABASE_POOL_SIZE` | no | A positive integer. Defaults to 5. |
+| `LOGFIRE_TOKEN` | no | A Logfire write token. Without it, traces stay local. |
+| `LOG_LEVEL` | no | `debug`, `info`, `warning` or `error`. Defaults to `info`. |
+
+Every request is traced with Logfire, and its spans and logs print to the console in every environment. Each response carries an `X-Request-ID` header. The API keeps an incoming `X-Request-ID` of up to 128 letters, digits and `._:-`, and otherwise generates one. Every span and log of the request carries the ID as `request_id`, so you can search Logfire for the ID a user reports. Log from app code with `logfire.info(...)` and its siblings.
 
 Run the checks that CI runs:
 
