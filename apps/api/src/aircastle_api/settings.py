@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     clerk_jwks_url: HttpUrl
     clerk_authorized_parties: frozenset[Origin] = Field(min_length=1)
     clerk_jwks_refetch_cooldown_seconds: NonNegativeFloat = 30
+    cors_origins: frozenset[Origin] = Field(min_length=1)
 
     def __init__(self) -> None:
         """Read every value from the environment. Settings take no arguments."""

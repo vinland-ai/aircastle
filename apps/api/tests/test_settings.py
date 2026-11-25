@@ -65,6 +65,29 @@ def test_clerk_needs_at_least_one_authorized_party(
         load_settings()
 
 
+def test_cors_origins_that_are_not_origins_are_named(
+    environment: pytest.MonkeyPatch,
+) -> None:
+    environment.setenv("CORS_ORIGINS", '["https://app.aircastle.test/dashboard"]')
+
+    with pytest.raises(SettingsError, match="CORS_ORIGINS"):
+        load_settings()
+
+
+def test_cors_needs_at_least_one_origin(environment: pytest.MonkeyPatch) -> None:
+    environment.setenv("CORS_ORIGINS", "[]")
+
+    with pytest.raises(SettingsError, match="CORS_ORIGINS"):
+        load_settings()
+
+
+def test_cors_origins_are_required(environment: pytest.MonkeyPatch) -> None:
+    environment.delenv("CORS_ORIGINS")
+
+    with pytest.raises(SettingsError, match="CORS_ORIGINS: Field required"):
+        load_settings()
+
+
 def test_startup_error_output_never_contains_a_secret(
     environment: pytest.MonkeyPatch,
 ) -> None:

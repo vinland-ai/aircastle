@@ -9,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 PROBLEM_JSON = "application/problem+json"
 
@@ -112,7 +113,42 @@ async def _problem_for(request: Request, error: Exception) -> JSONResponse:
             )
 
 
+class _UnhandledErrors:
+    """Answer an unhandled exception with a 500 problem, inside the user middleware.
+
+    Starlette answers it from outside every user middleware, so CORS headers
+    would be missing and browsers could not read the problem. The exception is
+    re-raised once the problem is sent, so the server still logs it.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self._app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+        started = False
+
+        async def send_tracked(message: Message) -> None:
+            nonlocal started
+            started = started or message["type"] == "http.response.start"
+            await send(message)
+
+        try:
+            await self._app(scope, receive, send_tracked)
+        except Exception as error:
+            if not started:
+                response = await _problem_for(Request(scope), error)
+                await response(scope, receive, send)
+            raise
+
+
 def add_problem_handlers(app: FastAPI) -> None:
-    """Answer every error the app raises with a problem response."""
+    """Answer every error the app raises with a problem response.
+
+    Call it before adding other middleware, so they wrap its 500 responses.
+    """
     for error in (RequestValidationError, DomainError, HTTPException, Exception):
         app.add_exception_handler(error, _problem_for)
+    app.add_middleware(_UnhandledErrors)
