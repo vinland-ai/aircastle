@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from typing import Protocol, runtime_checkable
 
 import jwt
-import logfire
 import pytest
 from httpx import AsyncClient
 from opentelemetry import trace
@@ -15,20 +14,10 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 from opentelemetry.trace import SpanKind
 from pytest_httpserver import HTTPServer
 from serving import serve
+from widgets import widget_routes
 
 from aircastle_api.app import create_app
 from aircastle_api.settings import load_settings
-
-
-async def buy_widget() -> dict[str, str]:
-    logfire.info("Bought a {widget}", widget="sprocket")
-    return {"widget": "sprocket"}
-
-
-async def break_widget() -> None:
-    logfire.warning("The {widget} is about to break", widget="sprocket")
-    message = "the widget broke"
-    raise RuntimeError(message)
 
 
 @runtime_checkable
@@ -40,8 +29,7 @@ class TracerProviderWithProcessors(Protocol):
 async def app_client() -> AsyncGenerator[AsyncClient]:
     """The real app built from the current environment, plus test-only routes."""
     app = create_app(load_settings())
-    app.add_api_route("/test/widgets/buy", buy_widget, methods=["POST"])
-    app.add_api_route("/test/widgets/break", break_widget, methods=["POST"])
+    app.include_router(widget_routes)
     async with serve(app) as client:
         yield client
 

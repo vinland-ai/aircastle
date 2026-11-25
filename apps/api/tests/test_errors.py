@@ -1,49 +1,21 @@
 from collections.abc import AsyncIterator
-from http import HTTPStatus
 
 import pytest
 from httpx import AsyncClient
-from pydantic import BaseModel, PositiveInt
 from serving import serve
+from widgets import widget_routes
 
 from aircastle_api.app import create_app
-from aircastle_api.errors import DomainError
 from aircastle_api.settings import load_settings
 
 PROBLEM_JSON = "application/problem+json"
-
-
-class Widget(BaseModel):
-    name: str
-    quantity: PositiveInt
-
-
-class WidgetsSoldOutError(DomainError):
-    status = HTTPStatus.CONFLICT
-
-
-async def create_widget(widget: Widget) -> Widget:
-    return widget
-
-
-async def buy_widget() -> Widget:
-    raise WidgetsSoldOutError(
-        "Every widget is sold out.", headers={"Retry-After": "60"}
-    )
-
-
-async def break_widget() -> Widget:
-    message = "connect to postgresql://aircastle:hunter2@db failed"
-    raise RuntimeError(message)
 
 
 @pytest.fixture
 async def client(environment: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
     """The real app, plus test-only routes that fail on purpose."""
     app = create_app(load_settings())
-    app.add_api_route("/test/widgets", create_widget, methods=["POST"])
-    app.add_api_route("/test/widgets/buy", buy_widget, methods=["POST"])
-    app.add_api_route("/test/widgets/break", break_widget, methods=["POST"])
+    app.include_router(widget_routes)
     async with serve(app) as client:
         yield client
 
@@ -107,7 +79,7 @@ async def test_invalid_request_is_a_422_problem_listing_each_field(
 async def test_domain_error_is_a_problem_with_its_chosen_status_and_headers(
     client: AsyncClient,
 ) -> None:
-    response = await client.post("/test/widgets/buy")
+    response = await client.post("/test/widgets/reserve")
 
     assert response.status_code == 409
     assert response.headers["content-type"] == PROBLEM_JSON
@@ -117,7 +89,7 @@ async def test_domain_error_is_a_problem_with_its_chosen_status_and_headers(
         "title": "Conflict",
         "status": 409,
         "detail": "Every widget is sold out.",
-        "instance": "/test/widgets/buy",
+        "instance": "/test/widgets/reserve",
     }
 
 
