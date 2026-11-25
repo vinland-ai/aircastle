@@ -2,14 +2,24 @@
 
 Aircastle is a code-first, headless CMS with agentic capabilities designed to automate the slow, manual parts of managing written content.
 
-This repository holds the landing page and a demo dashboard, built with Next.js.
+## Layout
 
-## Development
+- `apps/web` is the landing page and a demo dashboard, built with Next.js.
+- `apps/api` is the API, a FastAPI service.
+- The root holds docs, agent instructions and a Bun workspace for `apps/web`. It has no app config.
 
-Install [Bun](https://bun.sh), then install dependencies and start the dev server:
+## Web
+
+Install [Bun](https://bun.sh), then install dependencies from the repo root. One install covers every app in the workspace.
 
 ```sh
 bun install
+```
+
+Run every other command from `apps/web`. Start the dev server:
+
+```sh
+cd apps/web
 bun run dev
 ```
 
@@ -59,3 +69,9 @@ uv run ruff format --check
 uv run basedpyright
 uv run pytest
 ```
+
+## CI
+
+`.github/workflows/ci.yml` has one job per app. The `web` job installs, type-checks and builds `apps/web`. It runs only when `apps/web`, the root `package.json`, `bun.lock` or the workflow changes.
+
+The `api` job installs `apps/api` with uv and runs ruff, basedpyright and pytest. It runs only when `apps/api` or the workflow changes.
