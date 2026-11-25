@@ -32,7 +32,7 @@ def health_router(settings: Settings) -> APIRouter:
     async def ready(
         request: Request, database: Annotated[Database, Depends(current_database)]
     ) -> Readiness | JSONResponse:
-        if await database.answers():
+        if await database.is_reachable():
             return Readiness(status="ready")
         return problem_response(
             request, HTTPStatus.SERVICE_UNAVAILABLE, "The database is not answering."

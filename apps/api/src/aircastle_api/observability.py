@@ -79,7 +79,7 @@ class RequestIds:
             await self._app(scope, receive, send_with_id)
 
 
-def observe(app: FastAPI, settings: Settings) -> None:
+def configure_observability(app: FastAPI, settings: Settings) -> None:
     """Trace each request and its outgoing HTTP calls, and log them to the console.
 
     Traces reach Logfire only when a token is set. Incoming trace context is

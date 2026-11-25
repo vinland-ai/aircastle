@@ -15,7 +15,7 @@ from aircastle_api.errors import (
     document_problems,
 )
 from aircastle_api.health import health_router
-from aircastle_api.observability import RequestIds, observe
+from aircastle_api.observability import RequestIds, configure_observability
 from aircastle_api.rate_limit import RateLimiter
 from aircastle_api.settings import Settings
 from aircastle_api.state import AppState
@@ -68,7 +68,7 @@ def create_app(settings: Settings) -> FastAPI:
         responses=PROBLEM_RESPONSES,
         generate_unique_id_function=attrgetter("name"),
     )
-    observe(app, settings)
+    configure_observability(app, settings)
     add_problem_handlers(app)
     document_problems(app)
     app.include_router(health_router(settings))

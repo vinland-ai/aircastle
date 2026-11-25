@@ -42,7 +42,7 @@ class Database:
         self._engine = engine
         self.sessions = async_sessionmaker(engine, expire_on_commit=False)
 
-    async def answers(self) -> bool:
+    async def is_reachable(self) -> bool:
         """Report whether Postgres runs a trivial query within the ping timeout."""
         try:
             async with (
