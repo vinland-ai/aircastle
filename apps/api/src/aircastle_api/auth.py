@@ -1,7 +1,9 @@
 """Clerk session authentication: verify the bearer JWT and name the signed-in user."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from http import HTTPStatus
+from types import MappingProxyType
 from typing import Annotated
 
 import anyio.to_thread
@@ -37,6 +39,8 @@ class User:
     """A signed-in Clerk user, read from a verified session token."""
 
     id: str
+    session_id: str
+    claims: Mapping[str, object]
 
 
 class ClerkSessions:
@@ -87,7 +91,9 @@ class ClerkSessions:
                 "The session token was issued for another origin.",
                 headers=_INVALID_TOKEN,
             )
-        return User(id=claims["sub"])
+        return User(
+            id=claims["sub"], session_id=claims["sid"], claims=MappingProxyType(claims)
+        )
 
 
 async def authenticate(request: Request) -> User | DomainError | None:
