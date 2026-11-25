@@ -77,6 +77,3 @@ async def database_session(
     """A session for one request, closed when the request ends."""
     async with database.sessions() as session:
         yield session
-
-
-Session = Annotated[AsyncSession, Depends(database_session)]
