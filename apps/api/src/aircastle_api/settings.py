@@ -1,12 +1,15 @@
 from typing import Annotated, Literal
 
+from limits import RateLimitItem, parse
 from pydantic import (
     AfterValidator,
     Field,
     HttpUrl,
     NonNegativeFloat,
+    PlainValidator,
     PositiveInt,
     PostgresDsn,
+    RedisDsn,
     Secret,
     TypeAdapter,
     ValidationError,
@@ -34,6 +37,10 @@ type Origin = Annotated[str, AfterValidator(_as_origin)]
 """An http(s) scheme, host and optional port, with no trailing slash."""
 
 
+type RateLimit = Annotated[RateLimitItem, PlainValidator(parse)]
+"""A request count per time window, written like `120/minute`."""
+
+
 class Settings(BaseSettings):
     """Configuration read from the environment and an optional `.env` file."""
 
@@ -48,6 +55,9 @@ class Settings(BaseSettings):
     clerk_jwks_url: HttpUrl
     clerk_authorized_parties: frozenset[Origin] = Field(min_length=1)
     clerk_jwks_refetch_cooldown_seconds: NonNegativeFloat = 30
+    rate_limit: RateLimit = Field(default="120/minute", validate_default=True)
+    rate_limit_redis_url: Secret[RedisDsn] | None = None
+    client_ip_header: str | None = None
 
     def __init__(self) -> None:
         """Read every value from the environment. Settings take no arguments."""
