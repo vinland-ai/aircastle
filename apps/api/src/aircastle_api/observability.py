@@ -6,6 +6,7 @@ from uuid import uuid7
 import logfire
 from fastapi import FastAPI
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import Message, Receive, Scope, Send
 
@@ -59,3 +60,8 @@ def observe(app: FastAPI, settings: Settings) -> None:
     )
     logfire.instrument_fastapi(app)
     HTTPXClientInstrumentor().instrument()
+
+
+def instrument_database(engine: AsyncEngine) -> None:
+    """Trace each query `engine` runs, with its timing, inside the current request."""
+    logfire.instrument_sqlalchemy(engine=engine)
