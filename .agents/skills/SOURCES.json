@@ -1,6 +1,40 @@
 {
   "skills": [
     {
+      "name": "clerk",
+      "repository": "https://github.com/clerk/skills",
+      "path": "skills/clerk",
+      "commit": "e9a94f271affdfe9325da63d3267ff29d543fd7f",
+      "localEdits": [
+        "Trim the routing table and description to the vendored Clerk skills."
+      ],
+      "addedLicenseFiles": []
+    },
+    {
+      "name": "clerk-custom-ui",
+      "repository": "https://github.com/clerk/skills",
+      "path": "skills/clerk-custom-ui",
+      "commit": "e9a94f271affdfe9325da63d3267ff29d543fd7f",
+      "localEdits": [],
+      "addedLicenseFiles": []
+    },
+    {
+      "name": "clerk-nextjs-patterns",
+      "repository": "https://github.com/clerk/skills",
+      "path": "skills/clerk-nextjs-patterns",
+      "commit": "e9a94f271affdfe9325da63d3267ff29d543fd7f",
+      "localEdits": [],
+      "addedLicenseFiles": []
+    },
+    {
+      "name": "clerk-setup",
+      "repository": "https://github.com/clerk/skills",
+      "path": "skills/clerk-setup",
+      "commit": "e9a94f271affdfe9325da63d3267ff29d543fd7f",
+      "localEdits": [],
+      "addedLicenseFiles": []
+    },
+    {
       "name": "react-doctor",
       "repository": "https://github.com/millionco/react-doctor",
       "path": "skills/react-doctor",
