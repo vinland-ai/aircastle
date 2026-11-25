@@ -74,6 +74,7 @@ The API reads its settings from the environment and from `apps/api/.env`. It ref
 | `DATABASE_POOL_SIZE` | no | A positive integer. Defaults to 5. |
 | `LOGFIRE_TOKEN` | no | A Logfire write token. Without it, traces stay local. |
 | `LOG_LEVEL` | no | `debug`, `info`, `warning` or `error`. Defaults to `info`. |
+| `CLIENT_IP_HEADER` | no | The header that holds the client IP set by your proxy. Off by default, so the rate limiter keys anonymous callers by the socket peer. A value that isn't a single IP address is ignored. Railway deployments must set `X-Real-IP`. |
 
 Every request is traced with Logfire, and its spans and logs print to the console in every environment. Each response carries an `X-Request-ID` header. The API keeps an incoming `X-Request-ID` of up to 128 letters, digits and `._:-`, and otherwise generates one. Every span and log of the request carries the ID as `request_id`, so you can search Logfire for the ID a user reports. Log from app code with `logfire.info(...)` and its siblings.
 

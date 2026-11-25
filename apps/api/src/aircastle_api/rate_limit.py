@@ -3,6 +3,7 @@
 import math
 import time
 from http import HTTPStatus
+from ipaddress import ip_address
 
 from fastapi import FastAPI, Request
 from limits.aio.storage import MemoryStorage, RedisStorage, Storage
@@ -47,10 +48,11 @@ class RateLimiter:
         )
 
     def _client_ip(self, request: Request) -> str:
-        if self._client_ip_header and (
-            forwarded := request.headers.get(self._client_ip_header)
-        ):
-            return forwarded
+        if self._client_ip_header:
+            try:
+                return str(ip_address(request.headers.get(self._client_ip_header, "")))
+            except ValueError:
+                pass
         return request.client.host if request.client else "unknown"
 
 

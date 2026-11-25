@@ -82,6 +82,21 @@ async def test_anonymous_callers_behind_the_proxy_are_limited_by_their_own_ip(
     assert other.status_code == 401
 
 
+async def test_a_client_ip_header_that_is_not_one_ip_counts_against_the_peer(
+    environment: pytest.MonkeyPatch,
+) -> None:
+    environment.setenv("CLIENT_IP_HEADER", "X-Forwarded-For")
+    spoofed = ["203.0.113.1, 10.0.0.1", "203.0.113.2,10.0.0.1", "not-an-ip"]
+
+    async with serve(create_app(load_settings())) as client:
+        responses = [
+            await client.get("/v1/me", headers={"X-Forwarded-For": value})
+            for value in spoofed
+        ]
+
+    assert [response.status_code for response in responses] == [401, 401, 429]
+
+
 async def test_a_caller_cannot_dodge_the_limit_with_an_untrusted_ip_header(
     client: AsyncClient,
 ) -> None:
