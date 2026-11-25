@@ -14,6 +14,7 @@ from pydantic import (
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 type Environment = Literal["development", "test", "production"]
+type LogLevel = Literal["debug", "info", "warning", "error"]
 
 _HTTP_URL = TypeAdapter(HttpUrl)
 
@@ -41,6 +42,8 @@ class Settings(BaseSettings):
     environment: Environment
     database_url: Secret[PostgresDsn]
     database_pool_size: PositiveInt = 5
+    logfire_token: Secret[str] | None = None
+    log_level: LogLevel = "info"
     clerk_issuer: Origin
     clerk_jwks_url: HttpUrl
     clerk_authorized_parties: frozenset[Origin] = Field(min_length=1)

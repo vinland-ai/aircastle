@@ -14,6 +14,7 @@ from aircastle_api.errors import (
     add_problem_handlers,
 )
 from aircastle_api.health import health_router
+from aircastle_api.observability import RequestIdApp, observe
 from aircastle_api.settings import Settings
 from aircastle_api.v1 import v1_router
 
@@ -23,7 +24,7 @@ _PROBLEM_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
-class _AircastleAPI(FastAPI):
+class _AircastleAPI(RequestIdApp):
     def openapi(self) -> dict[str, Any]:
         if self.openapi_schema is None:
             for path in super().openapi()["paths"].values():
@@ -52,6 +53,7 @@ def create_app(settings: Settings) -> FastAPI:
         responses=_PROBLEM_RESPONSES,
         generate_unique_id_function=lambda route: route.name,
     )
+    observe(app, settings)
     add_problem_handlers(app)
     app.add_middleware(
         CORSMiddleware,
