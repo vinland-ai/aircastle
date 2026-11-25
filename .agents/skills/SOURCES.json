@@ -1,0 +1,66 @@
+{
+  "skills": [
+    {
+      "name": "clerk",
+      "repository": "https://github.com/clerk/skills",
+      "path": "skills/clerk",
+      "commit": "e9a94f271affdfe9325da63d3267ff29d543fd7f",
+      "localEdits": [
+        "Trim the routing table and description to the vendored Clerk skills."
+      ],
+      "addedLicenseFiles": []
+    },
+    {
+      "name": "clerk-custom-ui",
+      "repository": "https://github.com/clerk/skills",
+      "path": "skills/clerk-custom-ui",
+      "commit": "e9a94f271affdfe9325da63d3267ff29d543fd7f",
+      "localEdits": [],
+      "addedLicenseFiles": []
+    },
+    {
+      "name": "clerk-nextjs-patterns",
+      "repository": "https://github.com/clerk/skills",
+      "path": "skills/clerk-nextjs-patterns",
+      "commit": "e9a94f271affdfe9325da63d3267ff29d543fd7f",
+      "localEdits": [],
+      "addedLicenseFiles": []
+    },
+    {
+      "name": "clerk-setup",
+      "repository": "https://github.com/clerk/skills",
+      "path": "skills/clerk-setup",
+      "commit": "e9a94f271affdfe9325da63d3267ff29d543fd7f",
+      "localEdits": [],
+      "addedLicenseFiles": []
+    },
+    {
+      "name": "react-doctor",
+      "repository": "https://github.com/millionco/react-doctor",
+      "path": "skills/react-doctor",
+      "commit": "b6ba66ef427bf81995555e380eeba679f8b5d305",
+      "localEdits": [],
+      "addedLicenseFiles": [
+        "LICENSE"
+      ]
+    },
+    {
+      "name": "shadcn",
+      "repository": "https://github.com/shadcn-ui/ui",
+      "path": "skills/shadcn",
+      "commit": "055aa6b7837b1808456a24beb4c97a677864aa82",
+      "localEdits": [],
+      "addedLicenseFiles": [
+        "LICENSE.md"
+      ]
+    },
+    {
+      "name": "vercel-react-best-practices",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "path": "skills/react-best-practices",
+      "commit": "5a37a6329fbad3666c3207392a6a7c0110e92efb",
+      "localEdits": [],
+      "addedLicenseFiles": []
+    }
+  ]
+}
